@@ -1,0 +1,38 @@
+천체관측 도우미 - 시간대별 관측 업데이트
+
+추가 기능
+- 행성 출·남중·몰 시각
+- 오늘 밤 행성 관측 가능 시간 / 최적 시각
+- M1~M110의 오늘 밤 최적 시각
+- 30분 간격 날씨 + 고도 + 달빛을 합친 메시에 TOP 10
+
+설치
+1) Streamlit 실행 중이면 실행 중인 CMD 창에서 키보드 Ctrl+C로 종료합니다.
+
+2) ZIP 파일을 풉니다.
+
+3) 압축을 푼 폴더 안의 다음 파일을
+   C:\Users\tpdlq\astro_observation\
+   에 덮어씁니다.
+
+   app.py
+   utils\astronomy.py
+
+   data\messier.json 과 requirements.txt도 같이 들어 있지만 기존 파일과 함께 덮어써도 됩니다.
+
+4) CMD에서:
+   cd %USERPROFILE%\astro_observation
+
+5) 문법 검사:
+   py -m py_compile app.py
+   py -m py_compile utils\astronomy.py
+
+   두 명령 모두 아무 메시지 없이 프롬프트로 돌아오면 정상입니다.
+
+6) 실행:
+   py -m streamlit run app.py
+
+참고
+- 행성 출·몰은 5분 간격으로 고도 0° 교차를 찾아 계산하므로 시각은 대략 몇 분 정도 오차가 있을 수 있습니다.
+- 관측 가능 시간은 고도 15° 이상 + 태양 고도 -6° 이하를 기준으로 합니다.
+- 메시에 최적시간은 날씨 예보를 30분 간격으로 보간해 계산합니다.
