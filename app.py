@@ -1488,42 +1488,102 @@ try:
     st.subheader(f"📍 현재 관측지: {location_name}")
     st.subheader("🌦️ 현재 날씨")
 
-    weather_row1_col1, weather_row1_col2 = st.columns(2)
+    st.markdown(
+        """
+        <style>
 
-    weather_row1_col1.metric(
-        "🌡️ 기온",
-        f'{current["temperature_2m"]:.1f} °C'
+        .current-weather-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+            margin-bottom: 24px;
+        }
+
+        .weather-mini-card {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 14px;
+            padding: 14px 16px;
+            min-width: 0;
+        }
+
+        .weather-mini-label {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .weather-mini-value {
+            font-size: 24px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+
+            .current-weather-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 9px;
+            }
+
+            .weather-mini-card {
+                padding: 12px;
+            }
+
+            .weather-mini-label {
+                font-size: 13px;
+            }
+
+            .weather-mini-value {
+                font-size: 20px;
+            }
+
+        }
+
+        </style>
+        """,
+        unsafe_allow_html=True
     )
 
-    weather_row1_col2.metric(
-        "☁️ 구름량",
-        f'{current["cloud_cover"]:.0f}%'
+    current_weather_html = (
+        '<div class="current-weather-grid">'
+
+        '<div class="weather-mini-card">'
+        '<div class="weather-mini-label">🌡️ 기온</div>'
+        f'<div class="weather-mini-value">{current["temperature_2m"]:.1f} °C</div>'
+        '</div>'
+
+        '<div class="weather-mini-card">'
+        '<div class="weather-mini-label">☁️ 구름량</div>'
+        f'<div class="weather-mini-value">{current["cloud_cover"]:.0f}%</div>'
+        '</div>'
+
+        '<div class="weather-mini-card">'
+        '<div class="weather-mini-label">💧 습도</div>'
+        f'<div class="weather-mini-value">{current["relative_humidity_2m"]:.0f}%</div>'
+        '</div>'
+
+        '<div class="weather-mini-card">'
+        '<div class="weather-mini-label">💨 풍속</div>'
+        f'<div class="weather-mini-value">{current["wind_speed_10m"]:.1f} km/h</div>'
+        '</div>'
+
+        '<div class="weather-mini-card">'
+        '<div class="weather-mini-label">👁️ 시정</div>'
+        f'<div class="weather-mini-value">{current["visibility"] / 1000:.1f} km</div>'
+        '</div>'
+
+        '<div class="weather-mini-card">'
+        '<div class="weather-mini-label">🌧️ 강수량</div>'
+        f'<div class="weather-mini-value">{current["precipitation"]:.1f} mm</div>'
+        '</div>'
+
+        '</div>'
     )
 
-
-    weather_row2_col1, weather_row2_col2 = st.columns(2)
-
-    weather_row2_col1.metric(
-        "💧 습도",
-        f'{current["relative_humidity_2m"]:.0f}%'
-    )
-
-    weather_row2_col2.metric(
-        "💨 풍속",
-        f'{current["wind_speed_10m"]:.1f} km/h'
-    )
-
-
-    weather_row3_col1, weather_row3_col2 = st.columns(2)
-
-    weather_row3_col1.metric(
-        "👁️ 시정",
-        f'{current["visibility"] / 1000:.1f} km'
-    )
-
-    weather_row3_col2.metric(
-        "🌧️ 강수량",
-        f'{current["precipitation"]:.1f} mm'
+    st.markdown(
+        current_weather_html,
+        unsafe_allow_html=True
     )
 
     # ======================================
