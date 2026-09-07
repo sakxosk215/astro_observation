@@ -2780,17 +2780,9 @@ a.anchor-link {
         hide_index=True
     )
     
-    # ======================================
-    # 날짜별 평균 구름량 비교
-    # ======================================
 
-    
+
         # ======================================
-    # 날짜별 구름층 비교
-    # ======================================
-
-    
-    # ======================================
     # 이번 주 관측 추천 TOP 3
     # ======================================
 
@@ -2806,55 +2798,99 @@ a.anchor-link {
         .reset_index(drop=True)
     )
 
-    rank_col1, rank_col2, rank_col3 = st.columns(3)
+    st.markdown(
+        """
+        <style>
+        .top3-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+            margin-top: 8px;
+            margin-bottom: 24px;
+        }
 
-    rank_columns = [
-        rank_col1,
-        rank_col2,
-        rank_col3
-    ]
+        .top3-card {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 12px;
+            padding: 11px 5px;
+            text-align: center;
+            min-width: 0;
+        }
 
-    medals = [
-        "🥇",
-        "🥈",
-        "🥉"
-    ]
+        .top3-medal {
+            font-size: 22px;
+        }
+
+        .top3-date {
+            font-size: 12px;
+            font-weight: 700;
+            margin: 3px 0 5px 0;
+            white-space: nowrap;
+        }
+
+        .top3-score {
+            font-size: 23px;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .top3-grade {
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 7px;
+            white-space: nowrap;
+        }
+
+        .top3-info {
+            font-size: 11px;
+            line-height: 1.55;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    medals = ["🥇", "🥈", "🥉"]
+    weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
+
+    top3_html = '<div class="top3-grid">'
 
     for i in range(len(top3)):
 
         row = top3.iloc[i]
 
-        with rank_columns[i]:
+        card_date = pd.to_datetime(
+            row["날짜"]
+        )
 
-            st.markdown(
-                f"### {medals[i]} {row['날짜']}"
-            )
+        short_date = (
+            f"{card_date.month}/{card_date.day}"
+            f"({weekday_names[card_date.weekday()]})"
+        )
 
-            st.metric(
-                "관측 점수",
-                f"{row['관측 점수']}점"
-            )
+        score = int(
+            row["관측 점수"]
+        )
 
-            st.write(
-                row["등급"]
-            )
+        top3_html += (
+            '<div class="top3-card">'
+            f'<div class="top3-medal">{medals[i]}</div>'
+            f'<div class="top3-date">{short_date}</div>'
+            f'<div class="top3-score">{score}점</div>'
+            f'<div class="top3-grade">{row["등급"]}</div>'
+            '<div class="top3-info">'
+            f'🔭 {row["최적 시간"]}<br>'
+            f'☁️ {row["3모델 평균 구름 %"]:.0f}%'
+            '</div>'
+            '</div>'
+        )
 
-            st.write(
-                f"🔭 최적 시간: **{row['최적 시간']}**"
-            )
+    top3_html += '</div>'
 
-            st.write(
-                f"⭐ 최고 예상점수: **{row['최고 예상점수']}점**"
-            )
-
-            st.write(
-                f"☁️ 평균 구름: **{row['평균 구름 %']}%**"
-            )
-
-
-    # ======================================
-    # 7일 관측 점수 그래프
-    # ======================================
+    st.markdown(
+        top3_html,
+        unsafe_allow_html=True
+    )
 
     # --------------------------------------
     # 오늘 밤 관측 조건
@@ -2866,105 +2902,105 @@ a.anchor-link {
     st.header("🔭 오늘 밤 관측 조건")
 
     if len(night_df) > 0:  
-        average_score = round(night_df["관측점수"].mean())
-        best_window = find_best_observation_window(night_df)
+            average_score = round(night_df["관측점수"].mean())
+            best_window = find_best_observation_window(night_df)
 
-        score_col1, score_col2 = st.columns(2)
-        score_col1.metric("⭐ 오늘 밤 평균 관측 점수", f"{average_score} / 100")
-        score_col2.metric("🌌 관측 등급", weather_score_grade(average_score))
-        st.progress(average_score / 100)
+            score_col1, score_col2 = st.columns(2)
+            score_col1.metric("⭐ 오늘 밤 평균 관측 점수", f"{average_score} / 100")
+            score_col2.metric("🌌 관측 등급", weather_score_grade(average_score))
+            st.progress(average_score / 100)
 
-        if best_window:
-            best_start, best_end, best_score = best_window
-            st.success(
-                "🔭 추천 관측 시간: "
-                f"{best_start.strftime('%m/%d %H:%M')} ~ "
-                f"{best_end.strftime('%m/%d %H:%M')}"
-                f"  |  예상 점수 {best_score}/100"
-            )
+            if best_window:
+                best_start, best_end, best_score = best_window
+                st.success(
+                    "🔭 추천 관측 시간: "
+                    f"{best_start.strftime('%m/%d %H:%M')} ~ "
+                    f"{best_end.strftime('%m/%d %H:%M')}"
+                    f"  |  예상 점수 {best_score}/100"
+                )
 
-       
+        
 
-        with st.expander("📊 시간별 상세 정보"):
-            table_df = night_df.copy()
-            table_df["시간"] = table_df["시간"].dt.strftime("%m/%d %H:%M")
-            table_df["시정"] = (table_df["시정"] / 1000).round(1)
-            table_df = table_df[
-                [
-                    "시간",
-                    "관측점수",
-                    "구름량",
-                    "하층구름",
-                    "중층구름",
-                    "상층구름",
-                    "강수확률",
-                    "습도",
-                    "풍속",
-                    "시정",
-                ]
-            ].rename(
-                columns={
-                    "관측점수": "관측 점수",
-                    "구름량": "전체 구름 %",
-                    "하층구름": "하층 %",
-                    "중층구름": "중층 %",
-                    "상층구름": "상층 %",
-                    "강수확률": "강수확률 %",
-                    "습도": "습도 %",
-                    "풍속": "풍속 km/h",
-                    "시정": "시정 km",
-                }
-            )
-            st.dataframe(table_df, use_container_width=True, hide_index=True)
+            with st.expander("📊 시간별 상세 정보"):
+                table_df = night_df.copy()
+                table_df["시간"] = table_df["시간"].dt.strftime("%m/%d %H:%M")
+                table_df["시정"] = (table_df["시정"] / 1000).round(1)
+                table_df = table_df[
+                    [
+                        "시간",
+                        "관측점수",
+                        "구름량",
+                        "하층구름",
+                        "중층구름",
+                        "상층구름",
+                        "강수확률",
+                        "습도",
+                        "풍속",
+                        "시정",
+                    ]
+                ].rename(
+                    columns={
+                        "관측점수": "관측 점수",
+                        "구름량": "전체 구름 %",
+                        "하층구름": "하층 %",
+                        "중층구름": "중층 %",
+                        "상층구름": "상층 %",
+                        "강수확률": "강수확률 %",
+                        "습도": "습도 %",
+                        "풍속": "풍속 km/h",
+                        "시정": "시정 km",
+                    }
+                )
+                st.dataframe(table_df, use_container_width=True, hide_index=True)
     else:
-        average_score = 70
-        st.warning("오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다.")
+            average_score = 70
+            st.warning("오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다.")
 
-    # --------------------------------------
-    # 천문 계산 엔진
-    # --------------------------------------
+        # --------------------------------------
+        # 천문 계산 엔진
+        # --------------------------------------
 
     engine = AstronomyEngine(latitude, longitude)
 
-    # --------------------------------------
-    # 행성
-    # --------------------------------------
+        # --------------------------------------
+        # 행성
+        # --------------------------------------
 
     st.divider()
     st.header("🪐 현재 행성 관측 정보")
 
     with st.spinner("행성 위치를 계산하는 중..."):
-        planet_df = engine.get_planets()
+            planet_df = engine.get_planets()
 
     st.dataframe(planet_df, use_container_width=True, hide_index=True)
 
     visible_planets = planet_df[planet_df["관측"] == "✅ 관측 가능"]
 
     if len(visible_planets) > 0:
-        st.success(
-            "🔭 현재 관측 추천: "
-            + ", ".join(visible_planets["천체"].tolist())
-        )
+            st.success(
+                "🔭 현재 관측 추천: "
+                + ", ".join(visible_planets["천체"].tolist())
+            )
     else:
-        st.warning("현재 조건에서 고도 15° 이상인 관측 추천 행성이 없습니다.")
+            st.warning("현재 조건에서 고도 15° 이상인 관측 추천 행성이 없습니다.")
 
     st.subheader("⏰ 오늘 밤 행성 출·남중·몰 / 최적 관측시간")
     st.caption(
-        "출·몰 시각은 고도 0° 교차, 관측 가능 시간은 천체 고도 15° 이상 + "
-        "태양 고도 -6° 이하를 기준으로 계산합니다."
-    )
-
-    with st.spinner("오늘 밤 행성 관측 시간을 계산하는 중..."):
-        planet_schedule_df = engine.get_planet_night_schedule(
-            night_start,
-            night_end,
+            "출·몰 시각은 고도 0° 교차, 관측 가능 시간은 천체 고도 15° 이상 + "
+            "태양 고도 -6° 이하를 기준으로 계산합니다."
         )
 
+    with st.spinner("오늘 밤 행성 관측 시간을 계산하는 중..."):
+            planet_schedule_df = engine.get_planet_night_schedule(
+                night_start,
+                night_end,
+            )
+
     st.dataframe(
-        planet_schedule_df,
-        use_container_width=True,
-        hide_index=True,
-    )
+            planet_schedule_df,
+            use_container_width=True,
+            hide_index=True,
+        )
 
     # --------------------------------------
     # 달
@@ -2986,10 +3022,12 @@ a.anchor-link {
     moon_col6.metric("🌌 심우주 관측 영향", moon["달빛영향"])
 
     st.info(f'현재 달 위상: **{moon["위상"]}**')
+
     st.caption(
         f'달 위상각: {moon["위상각"]:.1f}° | '
         f'달 상태: {moon["상태"]}'
     )
+
 
     # --------------------------------------
     # 메시에 M1 ~ M110
@@ -2997,6 +3035,7 @@ a.anchor-link {
 
     st.divider()
     st.header("🌌 메시에 M1 ~ M110")
+
     st.caption(
         "현재 고도·방위각, 오늘 밤 날씨 점수, 달 밝기와 달과의 각거리, "
         "겉보기등급을 합쳐 v1 추천점수를 계산합니다."
@@ -3005,33 +3044,54 @@ a.anchor-link {
     messier_catalog = load_messier_catalog()
 
     with st.spinner("M1 ~ M110 위치와 관측 조건을 계산하는 중..."):
+
         messier_df = engine.get_messier_objects(
             messier_catalog,
             weather_score=average_score,
         )
 
-    observable_df = messier_df[messier_df["추천점수"] > 0].copy()
+    observable_df = messier_df[
+        messier_df["추천점수"] > 0
+    ].copy()
 
     mcol1, mcol2, mcol3 = st.columns(3)
-    mcol1.metric("🔭 현재 관측 가능", f"{len(observable_df)}개")
-    mcol2.metric("🌙 달 밝기", f'{moon["밝기"]:.1f}%')
+
+    mcol1.metric(
+        "🔭 현재 관측 가능",
+        f"{len(observable_df)}개"
+    )
+
+    mcol2.metric(
+        "🌙 달 밝기",
+        f'{moon["밝기"]:.1f}%'
+    )
 
     if len(observable_df) > 0:
+
         best_messier = observable_df.iloc[0]
         best_label = best_messier["메시에"]
+
         if best_messier["이름"]:
             best_label += f' {best_messier["이름"]}'
+
         mcol3.metric(
             "🏆 현재 1순위",
             best_label,
             f'{best_messier["추천점수"]}점',
         )
+
     else:
-        mcol3.metric("🏆 현재 1순위", "없음")
+
+        mcol3.metric(
+            "🏆 현재 1순위",
+            "없음"
+        )
+
 
     st.subheader("🏆 오늘의 메시에 추천 TOP 10")
 
     if len(observable_df) > 0:
+
         top10 = observable_df.head(10)[
             [
                 "메시에",
@@ -3045,19 +3105,39 @@ a.anchor-link {
                 "추천",
             ]
         ]
-        st.dataframe(top10, use_container_width=True, hide_index=True)
-    else:
-        st.warning("현재 시각에는 고도 15° 이상이면서 충분히 어두운 조건의 메시에 천체가 없습니다.")
 
-    st.subheader("⏰ 오늘 밤 메시에 최적 관측시간 TOP 10")
+        st.dataframe(
+            top10,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+
+        st.warning(
+            "현재 시각에는 고도 15° 이상이면서 "
+            "충분히 어두운 조건의 메시에 천체가 없습니다."
+        )
+
+
+    st.subheader(
+        "⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"
+    )
+
     st.caption(
-        "30분 간격의 날씨 점수, 천체 고도, 달 밝기·각거리, 겉보기등급을 함께 계산해 "
+        "30분 간격의 날씨 점수, 천체 고도, "
+        "달 밝기·각거리, 겉보기등급을 함께 계산해 "
         "오늘 밤 가장 좋은 시간대를 찾습니다."
     )
 
-    weather_timeline = build_half_hour_weather_timeline(night_df)
+    weather_timeline = build_half_hour_weather_timeline(
+        night_df
+    )
 
-    with st.spinner("M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."):
+    with st.spinner(
+        "M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."
+    ):
+
         messier_best_df = engine.get_messier_best_times(
             messier_catalog,
             weather_timeline,
@@ -3068,37 +3148,69 @@ a.anchor-link {
     ].copy()
 
     if len(tonight_messier) > 0:
+
         st.dataframe(
             tonight_messier.head(10),
             use_container_width=True,
             hide_index=True,
         )
+
     else:
-        st.warning("오늘 밤 추천 가능한 메시에 천체를 찾지 못했습니다.")
+
+        st.warning(
+            "오늘 밤 추천 가능한 메시에 천체를 찾지 못했습니다."
+        )
+
 
     st.subheader("🔎 M1 ~ M110 전체 목록")
 
     filter_col1, filter_col2 = st.columns(2)
-    only_observable = filter_col1.checkbox("현재 관측 가능한 천체만", value=True)
 
-    type_options = ["전체"] + sorted(messier_df["종류"].dropna().unique().tolist())
-    selected_type = filter_col2.selectbox("천체 종류", type_options)
+    only_observable = filter_col1.checkbox(
+        "현재 관측 가능한 천체만",
+        value=True
+    )
+
+    type_options = [
+        "전체"
+    ] + sorted(
+        messier_df["종류"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    selected_type = filter_col2.selectbox(
+        "천체 종류",
+        type_options
+    )
 
     display_messier = messier_df.copy()
 
     if only_observable:
-        display_messier = display_messier[display_messier["추천점수"] > 0]
+
+        display_messier = display_messier[
+            display_messier["추천점수"] > 0
+        ]
 
     if selected_type != "전체":
-        display_messier = display_messier[display_messier["종류"] == selected_type]
 
-    st.dataframe(display_messier, use_container_width=True, hide_index=True)
+        display_messier = display_messier[
+            display_messier["종류"] == selected_type
+        ]
+
+    st.dataframe(
+        display_messier,
+        use_container_width=True,
+        hide_index=True
+    )
 
     st.caption(
         "※ 메시에 추천점수는 동아리용 v1 경험식입니다. "
         "확장천체의 겉보기등급만으로 실제 관측 난이도를 완전히 표현할 수 없으며, "
         "현재 버전에는 시간대별 천체 고도와 최적 관측시간이 추가되었습니다. "
-        "다음 버전에서 광공해·천문박명·시상/투명도 등을 더 정교하게 반영할 예정입니다."
+        "다음 버전에서 광공해·천문박명·시상/투명도 등을 "
+        "더 정교하게 반영할 예정입니다."
     )
 
 
