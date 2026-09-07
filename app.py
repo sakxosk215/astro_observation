@@ -30,7 +30,9 @@ components.html(
     <script>
     const win = window.parent;
     const doc = win.document;
-
+    if ("scrollRestoration" in win.history) {
+        win.history.scrollRestoration = "manual";
+    }
     if (win.__astroPullRefreshController) {
         win.__astroPullRefreshController.destroy();
     }
@@ -291,7 +293,79 @@ components.html(
         );
     }
 
+    function forceScrollTop() {
 
+        win.scrollTo(
+            0,
+            0
+        );
+
+        if (doc.documentElement) {
+            doc.documentElement.scrollTop = 0;
+        }
+
+        if (doc.body) {
+            doc.body.scrollTop = 0;
+        }
+
+        if (doc.scrollingElement) {
+            doc.scrollingElement.scrollTop = 0;
+        }
+
+        const selectors = [
+            '[data-testid="stAppViewContainer"]',
+            '[data-testid="stMain"]',
+            'section.main',
+            '.main'
+        ];
+
+        selectors.forEach(
+            function(selector) {
+
+                const elements =
+                    doc.querySelectorAll(
+                        selector
+                    );
+
+                elements.forEach(
+                    function(element) {
+                        element.scrollTop = 0;
+                    }
+                );
+            }
+        );
+    }
+
+
+    // 새로고침 후에는 무조건 앱 맨 위에서 시작
+    if (
+        win.sessionStorage.getItem(
+            "astroForceScrollTop"
+        ) === "1"
+    ) {
+
+        win.sessionStorage.removeItem(
+            "astroForceScrollTop"
+        );
+
+        forceScrollTop();
+
+        setTimeout(
+            forceScrollTop,
+            100
+        );
+
+        setTimeout(
+            forceScrollTop,
+            400
+        );
+
+        setTimeout(
+            forceScrollTop,
+            1000
+        );
+    }
+    
     // =====================================
     // 화면 원위치
     // =====================================
@@ -593,10 +667,22 @@ components.html(
             }
 
 
-            setTimeout(
+                  setTimeout(
                 function() {
 
-                    win.location.reload();
+                    win.sessionStorage.setItem(
+                        "astroForceScrollTop",
+                        "1"
+                    );
+
+                    forceScrollTop();
+
+                    setTimeout(
+                        function() {
+                            win.location.reload();
+                        },
+                        80
+                    );
 
                 },
                 550
