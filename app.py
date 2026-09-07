@@ -2068,6 +2068,12 @@ try:
         """
         <style>
 
+        /* 제목 옆 링크/고정 버튼 숨기기 */
+[data-testid="stHeaderActionElements"],
+a.anchor-link {
+    display: none !important;
+}
+
         .current-weather-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
