@@ -1996,57 +1996,12 @@ try:
     # 날짜별 평균 구름량 비교
     # ======================================
 
-    st.subheader("☁️ 날짜별 평균 구름량")
-
-    cloud_compare_df = weekly_df[
-    [
-        "날짜",
-        "Best Match 평균 구름 %",
-        "ECMWF 평균 구름 %",
-        "GFS 평균 구름 %"
-    ]
-].copy()
-
-    cloud_compare_df = cloud_compare_df.set_index(
-    "날짜"
-)
-
-    st.line_chart(
-    cloud_compare_df,
-    height=320
-)
+    
         # ======================================
     # 날짜별 구름층 비교
     # ======================================
 
-    st.subheader("🌥️ 날짜별 구름층 비교")
-
-    layer_compare_df = weekly_df[
-    [
-        "날짜",
-
-        "하층 구름 %",
-        "중층 구름 %",
-        "상층 구름 %",
-
-        "ECMWF 하층 구름 %",
-        "ECMWF 중층 구름 %",
-        "ECMWF 상층 구름 %",
-
-        "GFS 하층 구름 %",
-        "GFS 중층 구름 %",
-        "GFS 상층 구름 %"
-    ]
-].copy()
-
-    layer_compare_df = layer_compare_df.set_index(
-    "날짜"
-)
-
-    st.line_chart(
-    layer_compare_df,
-    height=340
-)
+    
     # ======================================
     # 이번 주 관측 추천 TOP 3
     # ======================================
@@ -2156,12 +2111,6 @@ try:
                 f"{best_end.strftime('%m/%d %H:%M')}"
                 f"  |  예상 점수 {best_score}/100"
             )
-
-        st.subheader("☁️ 시간별 구름량")
-        cloud_chart = night_df[
-            ["시간", "구름량", "하층구름", "중층구름", "상층구름"]
-        ].set_index("시간")
-        st.line_chart(cloud_chart, height=320)
 
         st.subheader("⭐ 시간별 관측 점수")
         score_chart = night_df[["시간", "관측점수"]].set_index("시간")
