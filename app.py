@@ -20,7 +20,86 @@ st.set_page_config(
     page_icon="🌌",
     layout="wide",
 )
+# ==========================================
+# 모바일 화면 글씨 크기 최적화
+# ==========================================
 
+st.markdown(
+    """
+    <style>
+
+    @media (max-width: 768px) {
+
+        /* 전체 페이지 좌우 여백 */
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 1.5rem;
+        }
+
+        /* 가장 큰 제목 */
+        h1 {
+            font-size: 2rem !important;
+            line-height: 1.25 !important;
+        }
+
+        /* 섹션 제목 */
+        h2 {
+            font-size: 1.65rem !important;
+            line-height: 1.3 !important;
+            margin-top: 1.5rem !important;
+            margin-bottom: 0.8rem !important;
+        }
+
+        /* 소제목 */
+        h3 {
+            font-size: 1.35rem !important;
+            line-height: 1.3 !important;
+        }
+
+        /* 일반 글씨 */
+        p,
+        li {
+            font-size: 0.95rem;
+        }
+
+        /* metric 이름 */
+        [data-testid="stMetricLabel"] {
+            font-size: 0.9rem !important;
+        }
+
+        /* metric 숫자 */
+        [data-testid="stMetricValue"] {
+            font-size: 2rem !important;
+        }
+
+        /* 카드 날짜 */
+        .weekly-card-date {
+            font-size: 16px !important;
+        }
+
+        /* 카드 등급 */
+        .weekly-card-grade {
+            font-size: 17px !important;
+        }
+
+        /* 카드 점수 */
+        .weekly-card-score {
+            font-size: 26px !important;
+        }
+
+        /* 카드 상세 정보 */
+        .weekly-card-info {
+            font-size: 14px !important;
+            line-height: 1.65 !important;
+        }
+
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 st.title("🌌 AAA 날씨 확인")
 st.write("AAA를 위한 관측 지원 앱입니다.")
 st.divider()
