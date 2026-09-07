@@ -1488,16 +1488,43 @@ try:
     st.subheader(f"📍 현재 관측지: {location_name}")
     st.subheader("🌦️ 현재 날씨")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🌡️ 기온", f'{current["temperature_2m"]:.1f} °C')
-    col2.metric("☁️ 구름량", f'{current["cloud_cover"]:.0f}%')
-    col3.metric("💧 습도", f'{current["relative_humidity_2m"]:.0f}%')
+    weather_row1_col1, weather_row1_col2 = st.columns(2)
 
-    col4, col5, col6 = st.columns(3)
-    col4.metric("💨 풍속", f'{current["wind_speed_10m"]:.1f} km/h')
-    col5.metric("👁️ 시정", f'{current["visibility"] / 1000:.1f} km')
-    col6.metric("🌧️ 강수량", f'{current["precipitation"]:.1f} mm')
+    weather_row1_col1.metric(
+        "🌡️ 기온",
+        f'{current["temperature_2m"]:.1f} °C'
+    )
 
+    weather_row1_col2.metric(
+        "☁️ 구름량",
+        f'{current["cloud_cover"]:.0f}%'
+    )
+
+
+    weather_row2_col1, weather_row2_col2 = st.columns(2)
+
+    weather_row2_col1.metric(
+        "💧 습도",
+        f'{current["relative_humidity_2m"]:.0f}%'
+    )
+
+    weather_row2_col2.metric(
+        "💨 풍속",
+        f'{current["wind_speed_10m"]:.1f} km/h'
+    )
+
+
+    weather_row3_col1, weather_row3_col2 = st.columns(2)
+
+    weather_row3_col1.metric(
+        "👁️ 시정",
+        f'{current["visibility"] / 1000:.1f} km'
+    )
+
+    weather_row3_col2.metric(
+        "🌧️ 강수량",
+        f'{current["precipitation"]:.1f} mm'
+    )
 
     # ======================================
     # 7일 관측 예보
