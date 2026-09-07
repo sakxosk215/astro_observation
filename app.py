@@ -2883,9 +2883,7 @@ a.anchor-link {
                 f"  |  예상 점수 {best_score}/100"
             )
 
-        st.subheader("⭐ 시간별 관측 점수")
-        score_chart = night_df[["시간", "관측점수"]].set_index("시간")
-        st.line_chart(score_chart, height=250)
+       
 
         with st.expander("📊 시간별 상세 정보"):
             table_df = night_df.copy()
