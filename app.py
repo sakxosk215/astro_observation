@@ -100,6 +100,13 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+if st.button(
+    "🔄 새로고침",
+    use_container_width=True
+):
+    st.cache_data.clear()
+    st.rerun()
+    
 st.title("🌌 AAA 날씨 확인")
 st.write("AAA를 위한 관측 지원 앱입니다.")
 st.divider()
@@ -2068,23 +2075,6 @@ try:
     # 7일 관측 점수 그래프
     # ======================================
 
-    st.subheader("📈 7일 관측 점수 변화")
-
-    weekly_chart = (
-        weekly_df[
-            [
-                "날짜",
-                "관측 점수",
-                "최고 예상점수"
-            ]
-        ]
-        .set_index("날짜")
-    )
-
-    st.line_chart(
-        weekly_chart,
-        height=320
-    )
     # --------------------------------------
     # 오늘 밤 관측 조건
     # --------------------------------------
