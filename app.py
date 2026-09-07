@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import requests
 import streamlit as st
-
+import streamlit.components.v1 as components
 from utils.astronomy import AstronomyEngine
 
 
@@ -20,6 +20,82 @@ st.set_page_config(
     page_icon="🌌",
     layout="wide",
 )
+
+# ==========================================
+# 모바일 당겨서 새로고침
+# ==========================================
+
+components.html(
+    """
+    <script>
+    const win = window.parent;
+    const doc = win.document;
+
+    let startY = 0;
+    let startX = 0;
+    let canRefresh = false;
+
+    function getScrollTop() {
+        const main = doc.querySelector('section.main');
+        const app = doc.querySelector('[data-testid="stAppViewContainer"]');
+
+        if (main && main.scrollTop > 0) {
+            return main.scrollTop;
+        }
+
+        if (app && app.scrollTop > 0) {
+            return app.scrollTop;
+        }
+
+        return win.scrollY || doc.documentElement.scrollTop || 0;
+    }
+
+    doc.addEventListener(
+        "touchstart",
+        function(event) {
+
+            if (getScrollTop() <= 2) {
+                startY = event.touches[0].clientY;
+                startX = event.touches[0].clientX;
+                canRefresh = true;
+            } else {
+                canRefresh = false;
+            }
+        },
+        { passive: true }
+    );
+
+    doc.addEventListener(
+        "touchend",
+        function(event) {
+
+            if (!canRefresh) {
+                return;
+            }
+
+            const endY = event.changedTouches[0].clientY;
+            const endX = event.changedTouches[0].clientX;
+
+            const moveY = endY - startY;
+            const moveX = Math.abs(endX - startX);
+
+            if (
+                moveY >= 120
+                && moveY > moveX
+                && getScrollTop() <= 2
+            ) {
+                win.location.reload();
+            }
+
+            canRefresh = false;
+        },
+        { passive: true }
+    );
+    </script>
+    """,
+    height=0
+)
+
 # ==========================================
 # 모바일 화면 글씨 크기 최적화
 # ==========================================
@@ -106,7 +182,7 @@ if st.button(
 ):
     st.cache_data.clear()
     st.rerun()
-    
+
 st.title("🌌 AAA 날씨 확인")
 st.write("AAA를 위한 관측 지원 앱입니다.")
 st.divider()
