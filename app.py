@@ -614,6 +614,29 @@ st.markdown(
             font-size: 0.95rem;
         }
 
+        /* 일반 화면 글자 선택 / 복사 메뉴 방지 */
+        .stApp h1,
+        .stApp h2,
+        .stApp h3,
+        .stApp p,
+        .stApp span,
+        .stApp label,
+        .weekly-card,
+        .weather-mini-card {
+            -webkit-user-select: none !important;
+            user-select: none !important;
+            -webkit-touch-callout: none !important;
+        }
+
+        /* 검색창 등 입력칸은 정상적으로 선택 가능 */
+        input,
+        textarea,
+        [contenteditable="true"] {
+            -webkit-user-select: text !important;
+            user-select: text !important;
+            -webkit-touch-callout: default !important;
+        }        
+
         /* metric 이름 */
         [data-testid="stMetricLabel"] {
             font-size: 0.9rem !important;
