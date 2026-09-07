@@ -31,37 +31,42 @@ components.html(
     const win = window.parent;
     const doc = win.document;
 
-    // 기존 이벤트가 있으면 제거
     if (win.__astroPullRefreshController) {
         win.__astroPullRefreshController.destroy();
     }
 
-    const REFRESH_DISTANCE = 320;
+    const REFRESH_DISTANCE = 260;
     const MAX_PULL = 95;
 
     let startY = 0;
     let startX = 0;
+
     let pullDistance = 0;
     let visualPull = 0;
+
     let canPull = false;
     let refreshing = false;
 
+    let touchTarget = null;
+
 
     // =====================================
-    // 기존 표시 제거
+    // 이전 표시 제거
     // =====================================
 
-    const oldIndicator = doc.getElementById(
-        "astro-pull-refresh"
-    );
+    const oldIndicator =
+        doc.getElementById(
+            "astro-pull-refresh"
+        );
 
     if (oldIndicator) {
         oldIndicator.remove();
     }
 
-    const oldStyle = doc.getElementById(
-        "astro-pull-refresh-style"
-    );
+    const oldStyle =
+        doc.getElementById(
+            "astro-pull-refresh-style"
+        );
 
     if (oldStyle) {
         oldStyle.remove();
@@ -72,9 +77,11 @@ components.html(
     // 스타일
     // =====================================
 
-    const style = doc.createElement("style");
+    const style =
+        doc.createElement("style");
 
-    style.id = "astro-pull-refresh-style";
+    style.id =
+        "astro-pull-refresh-style";
 
     style.textContent = `
         html,
@@ -84,12 +91,15 @@ components.html(
 
         #astro-pull-refresh {
             position: fixed;
+
             top: 8px;
             left: 50%;
+
             z-index: 999999;
 
             display: flex;
             align-items: center;
+
             gap: 8px;
 
             padding: 8px 13px;
@@ -135,16 +145,18 @@ components.html(
             border-top-color: white;
 
             border-radius: 50%;
-
-            transform: rotate(0deg);
         }
 
         #astro-pull-refresh.refreshing .spinner {
             animation:
-                astro-spin 0.75s linear infinite;
+                astro-spin
+                0.75s
+                linear
+                infinite;
         }
 
         @keyframes astro-spin {
+
             from {
                 transform: rotate(0deg);
             }
@@ -169,22 +181,107 @@ components.html(
     const indicator =
         doc.createElement("div");
 
-    indicator.id = "astro-pull-refresh";
+    indicator.id =
+        "astro-pull-refresh";
 
     indicator.innerHTML = `
         <div class="spinner"></div>
+
         <span class="refresh-text">
-            당겨서 새로고침
+            아래로 당기세요
         </span>
     `;
 
-    doc.body.appendChild(indicator);
+    doc.body.appendChild(
+        indicator
+    );
 
 
     const refreshText =
         indicator.querySelector(
             ".refresh-text"
         );
+
+
+    // =====================================
+    // 실제 스크롤 위치 찾기
+    // =====================================
+
+    function getRealScrollTop(target) {
+
+        const scrollValues = [
+            win.scrollY || 0,
+
+            doc.documentElement
+                ? doc.documentElement.scrollTop
+                : 0,
+
+            doc.body
+                ? doc.body.scrollTop
+                : 0,
+
+            doc.scrollingElement
+                ? doc.scrollingElement.scrollTop
+                : 0
+        ];
+
+
+        const selectors = [
+            '[data-testid="stAppViewContainer"]',
+            '[data-testid="stMain"]',
+            'section.main',
+            '.main'
+        ];
+
+
+        selectors.forEach(
+            function(selector) {
+
+                const elements =
+                    doc.querySelectorAll(
+                        selector
+                    );
+
+                elements.forEach(
+                    function(element) {
+
+                        scrollValues.push(
+                            element.scrollTop || 0
+                        );
+                    }
+                );
+            }
+        );
+
+
+        // 터치한 위치의 부모 요소 중
+        // 실제로 스크롤되는 요소도 검사
+        let element = target;
+
+        while (
+            element
+            && element !== doc.body
+        ) {
+
+            if (
+                element.scrollHeight
+                > element.clientHeight + 5
+            ) {
+
+                scrollValues.push(
+                    element.scrollTop || 0
+                );
+            }
+
+            element =
+                element.parentElement;
+        }
+
+
+        return Math.max(
+            ...scrollValues
+        );
+    }
 
 
     function getAppContainer() {
@@ -195,35 +292,9 @@ components.html(
     }
 
 
-    function getScrollTop() {
-
-        const app = getAppContainer();
-
-        const main = doc.querySelector(
-            'section.main'
-        );
-
-        if (
-            main
-            && main.scrollTop > 0
-        ) {
-            return main.scrollTop;
-        }
-
-        if (
-            app
-            && app.scrollTop > 0
-        ) {
-            return app.scrollTop;
-        }
-
-        return (
-            win.scrollY
-            || doc.documentElement.scrollTop
-            || 0
-        );
-    }
-
+    // =====================================
+    // 화면 원위치
+    // =====================================
 
     function resetPull() {
 
@@ -233,19 +304,22 @@ components.html(
         if (app) {
 
             app.style.transition =
-                "transform 0.32s ease";
+                "transform 0.30s ease";
 
             app.style.transform =
                 "translateY(0px)";
         }
 
+
         indicator.style.transition =
-            "opacity 0.25s ease, "
-            + "transform 0.32s ease";
+            "opacity 0.22s ease, "
+            + "transform 0.30s ease";
+
 
         indicator.style.transform =
             "translate(-50%, -45px) "
             + "scale(0.9)";
+
 
         indicator.classList.remove(
             "visible"
@@ -254,6 +328,7 @@ components.html(
         indicator.classList.remove(
             "refreshing"
         );
+
 
         setTimeout(
             function() {
@@ -265,17 +340,20 @@ components.html(
                 indicator.style.transition = "";
 
             },
-            350
+            330
         );
+
 
         pullDistance = 0;
         visualPull = 0;
+
         canPull = false;
+        touchTarget = null;
     }
 
 
     // =====================================
-    // 터치 시작
+    // 손가락 터치 시작
     // =====================================
 
     function touchStart(event) {
@@ -284,7 +362,19 @@ components.html(
             return;
         }
 
-        if (getScrollTop() <= 2) {
+
+        touchTarget =
+            event.target;
+
+
+        const currentScroll =
+            getRealScrollTop(
+                touchTarget
+            );
+
+
+        // 반드시 실제 페이지 최상단이어야 함
+        if (currentScroll <= 2) {
 
             startY =
                 event.touches[0].clientY;
@@ -294,6 +384,7 @@ components.html(
 
             pullDistance = 0;
             visualPull = 0;
+
             canPull = true;
 
         } else {
@@ -304,7 +395,7 @@ components.html(
 
 
     // =====================================
-    // 당기는 동안
+    // 아래로 당기는 동안
     // =====================================
 
     function touchMove(event) {
@@ -316,11 +407,28 @@ components.html(
             return;
         }
 
+
+        // 이동 도중에도
+        // 정말 최상단인지 다시 확인
+        if (
+            getRealScrollTop(
+                touchTarget
+            ) > 2
+        ) {
+
+            canPull = false;
+            resetPull();
+
+            return;
+        }
+
+
         const currentY =
             event.touches[0].clientY;
 
         const currentX =
             event.touches[0].clientX;
+
 
         const moveY =
             currentY - startY;
@@ -331,17 +439,13 @@ components.html(
             );
 
 
+        // 위로 스와이프하거나
+        // 옆으로 스와이프하면 새로고침 취소
         if (
             moveY <= 0
             || moveY <= moveX
         ) {
-            return;
-        }
 
-
-        if (getScrollTop() > 2) {
-
-            canPull = false;
             return;
         }
 
@@ -351,15 +455,15 @@ components.html(
         }
 
 
-        pullDistance = moveY;
+        pullDistance =
+            moveY;
 
 
-        // 실제 손가락 이동보다
-        // 화면은 천천히 따라오게 함
-        visualPull = Math.min(
-            MAX_PULL,
-            moveY * 0.32
-        );
+        visualPull =
+            Math.min(
+                MAX_PULL,
+                moveY * 0.30
+            );
 
 
         const app =
@@ -368,7 +472,8 @@ components.html(
 
         if (app) {
 
-            app.style.transition = "none";
+            app.style.transition =
+                "none";
 
             app.style.transform =
                 `translateY(${visualPull}px)`;
@@ -392,12 +497,11 @@ components.html(
             + "scale(1)";
 
 
-        // 당기는 정도에 따라
-        // 로딩 원 회전
         const spinner =
             indicator.querySelector(
                 ".spinner"
             );
+
 
         const rotation =
             Math.min(
@@ -427,7 +531,7 @@ components.html(
 
 
     // =====================================
-    // 손을 놓았을 때
+    // 손가락을 놓음
     // =====================================
 
     function touchEnd() {
@@ -440,12 +544,22 @@ components.html(
         }
 
 
+        // 손을 놓는 순간에도
+        // 최상단 여부 마지막 확인
+        const currentScroll =
+            getRealScrollTop(
+                touchTarget
+            );
+
+
         if (
             pullDistance
             >= REFRESH_DISTANCE
+            && currentScroll <= 2
         ) {
 
             refreshing = true;
+
 
             const app =
                 getAppContainer();
@@ -453,6 +567,7 @@ components.html(
 
             refreshText.textContent =
                 "새로고침 중...";
+
 
             indicator.classList.add(
                 "refreshing"
@@ -478,8 +593,6 @@ components.html(
             }
 
 
-            // 로딩 애니메이션을
-            // 잠깐 보여준 뒤 새로고침
             setTimeout(
                 function() {
 
@@ -497,7 +610,7 @@ components.html(
 
 
     // =====================================
-    // 이벤트 등록
+    // 이벤트
     // =====================================
 
     doc.addEventListener(
@@ -508,6 +621,7 @@ components.html(
         }
     );
 
+
     doc.addEventListener(
         "touchmove",
         touchMove,
@@ -515,6 +629,7 @@ components.html(
             passive: false
         }
     );
+
 
     doc.addEventListener(
         "touchend",
@@ -525,8 +640,11 @@ components.html(
     );
 
 
+    // =====================================
     // Streamlit 재실행 시
-    // 이벤트 중복 방지
+    // 중복 이벤트 방지
+    // =====================================
+
     win.__astroPullRefreshController = {
 
         destroy: function() {
@@ -546,6 +664,7 @@ components.html(
                 touchEnd
             );
 
+
             const indicator =
                 doc.getElementById(
                     "astro-pull-refresh"
@@ -554,6 +673,7 @@ components.html(
             if (indicator) {
                 indicator.remove();
             }
+
 
             const style =
                 doc.getElementById(
