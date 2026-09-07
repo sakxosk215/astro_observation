@@ -31,66 +31,149 @@ components.html(
     const win = window.parent;
     const doc = win.document;
 
-    let startY = 0;
-    let startX = 0;
-    let canRefresh = false;
+    const REFRESH_DISTANCE = 240;
 
-    function getScrollTop() {
-        const main = doc.querySelector('section.main');
-        const app = doc.querySelector('[data-testid="stAppViewContainer"]');
+    // 같은 이벤트가 여러 번 등록되는 것 방지
+    if (!win.__astroPullRefreshInstalled) {
 
-        if (main && main.scrollTop > 0) {
-            return main.scrollTop;
+        win.__astroPullRefreshInstalled = true;
+
+        let startY = 0;
+        let startX = 0;
+        let canRefresh = false;
+        let pullDistance = 0;
+
+
+        // 브라우저 기본 당겨서 새로고침 최대한 차단
+        const style = doc.createElement("style");
+
+        style.textContent = `
+            html,
+            body,
+            [data-testid="stAppViewContainer"] {
+                overscroll-behavior-y: none !important;
+            }
+        `;
+
+        doc.head.appendChild(style);
+
+
+        function getScrollTop() {
+
+            const main = doc.querySelector(
+                'section.main'
+            );
+
+            const app = doc.querySelector(
+                '[data-testid="stAppViewContainer"]'
+            );
+
+            if (main && main.scrollTop > 0) {
+                return main.scrollTop;
+            }
+
+            if (app && app.scrollTop > 0) {
+                return app.scrollTop;
+            }
+
+            return (
+                win.scrollY
+                || doc.documentElement.scrollTop
+                || 0
+            );
         }
 
-        if (app && app.scrollTop > 0) {
-            return app.scrollTop;
-        }
 
-        return win.scrollY || doc.documentElement.scrollTop || 0;
-    }
+        doc.addEventListener(
+            "touchstart",
+            function(event) {
 
-    doc.addEventListener(
-        "touchstart",
-        function(event) {
+                if (getScrollTop() <= 2) {
 
-            if (getScrollTop() <= 2) {
-                startY = event.touches[0].clientY;
-                startX = event.touches[0].clientX;
-                canRefresh = true;
-            } else {
+                    startY =
+                        event.touches[0].clientY;
+
+                    startX =
+                        event.touches[0].clientX;
+
+                    pullDistance = 0;
+                    canRefresh = true;
+
+                } else {
+
+                    canRefresh = false;
+                }
+            },
+            {
+                passive: true
+            }
+        );
+
+
+        doc.addEventListener(
+            "touchmove",
+            function(event) {
+
+                if (!canRefresh) {
+                    return;
+                }
+
+                const currentY =
+                    event.touches[0].clientY;
+
+                const currentX =
+                    event.touches[0].clientX;
+
+                const moveY =
+                    currentY - startY;
+
+                const moveX =
+                    Math.abs(
+                        currentX - startX
+                    );
+
+
+                if (
+                    moveY > 0
+                    && moveY > moveX
+                    && getScrollTop() <= 2
+                ) {
+
+                    pullDistance = moveY;
+
+                    // 브라우저 기본 새로고침 UI 방지
+                    if (event.cancelable) {
+                        event.preventDefault();
+                    }
+                }
+            },
+            {
+                passive: false
+            }
+        );
+
+
+        doc.addEventListener(
+            "touchend",
+            function() {
+
+                if (
+                    canRefresh
+                    && pullDistance >= REFRESH_DISTANCE
+                    && getScrollTop() <= 2
+                ) {
+
+                    win.location.reload();
+                }
+
                 canRefresh = false;
+                pullDistance = 0;
+            },
+            {
+                passive: true
             }
-        },
-        { passive: true }
-    );
-
-    doc.addEventListener(
-        "touchend",
-        function(event) {
-
-            if (!canRefresh) {
-                return;
-            }
-
-            const endY = event.changedTouches[0].clientY;
-            const endX = event.changedTouches[0].clientX;
-
-            const moveY = endY - startY;
-            const moveX = Math.abs(endX - startX);
-
-            if (
-                moveY >= 120
-                && moveY > moveX
-                && getScrollTop() <= 2
-            ) {
-                win.location.reload();
-            }
-
-            canRefresh = false;
-        },
-        { passive: true }
-    );
+        );
+    }
     </script>
     """,
     height=0
