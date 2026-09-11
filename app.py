@@ -68,7 +68,7 @@ components.html(
 
             right: 16px;
             bottom: calc(
-                18px + env(safe-area-inset-bottom)
+                90px + env(safe-area-inset-bottom)
             );
 
             width: 52px;
@@ -3455,21 +3455,122 @@ a.anchor-link {
 
     moon = engine.get_moon()
 
-    moon_col1, moon_col2, moon_col3 = st.columns(3)
-    moon_col1.metric("🌙 달 밝기", f'{moon["밝기"]:.1f}%')
-    moon_col2.metric("⬆️ 현재 고도", f'{moon["고도"]:.1f}°')
-    moon_col3.metric("🧭 방위각", f'{moon["방위각"]:.1f}°')
+    st.markdown(
+        """
+        <style>
+        .moon-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+            margin-bottom: 10px;
+        }
 
-    moon_col4, moon_col5, moon_col6 = st.columns(3)
-    moon_col4.metric("🧭 방향", moon["방향"])
-    moon_col5.metric("📏 거리", f'{moon["거리_km"]:,} km')
-    moon_col6.metric("🌌 심우주 관측 영향", moon["달빛영향"])
+        .moon-card {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 14px;
+            padding: 13px 10px;
+            text-align: center;
+            min-width: 0;
+        }
 
-    st.info(f'현재 달 위상: **{moon["위상"]}**')
+        .moon-label {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
 
-    st.caption(
-        f'달 위상각: {moon["위상각"]:.1f}° | '
-        f'달 상태: {moon["상태"]}'
+        .moon-value {
+            font-size: 22px;
+            font-weight: 800;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+
+        .moon-phase-card {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 14px;
+            padding: 11px 12px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+
+            .moon-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .moon-card {
+                padding: 11px 7px;
+            }
+
+            .moon-label {
+                font-size: 12px;
+            }
+
+            .moon-value {
+                font-size: 20px;
+            }
+
+            .moon-phase-card {
+                font-size: 13px;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    moon_html = (
+        '<div class="moon-grid">'
+
+        '<div class="moon-card">'
+        '<div class="moon-label">🌙 달 밝기</div>'
+        f'<div class="moon-value">{moon["밝기"]:.1f}%</div>'
+        '</div>'
+
+        '<div class="moon-card">'
+        '<div class="moon-label">⬆️ 현재 고도</div>'
+        f'<div class="moon-value">{moon["고도"]:.1f}°</div>'
+        '</div>'
+
+        '<div class="moon-card">'
+        '<div class="moon-label">🧭 방위각</div>'
+        f'<div class="moon-value">{moon["방위각"]:.1f}°</div>'
+        '</div>'
+
+        '<div class="moon-card">'
+        '<div class="moon-label">🧭 방향</div>'
+        f'<div class="moon-value">{moon["방향"]}</div>'
+        '</div>'
+
+        '<div class="moon-card">'
+        '<div class="moon-label">📏 거리</div>'
+        f'<div class="moon-value">{moon["거리_km"]:,} km</div>'
+        '</div>'
+
+        '<div class="moon-card">'
+        '<div class="moon-label">🌌 심우주 영향</div>'
+        f'<div class="moon-value">{moon["달빛영향"]}</div>'
+        '</div>'
+
+        '</div>'
+
+        '<div class="moon-phase-card">'
+        f'🌙 <b>{moon["위상"]}</b>'
+        f' · 위상각 {moon["위상각"]:.1f}°'
+        f' · {moon["상태"]}'
+        '</div>'
+    )
+
+    st.markdown(
+        moon_html,
+        unsafe_allow_html=True
     )
 
 
