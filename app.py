@@ -2892,7 +2892,7 @@ a.anchor-link {
         unsafe_allow_html=True
     )
 
-    # --------------------------------------
+        # --------------------------------------
     # 오늘 밤 관측 조건
     # --------------------------------------
 
@@ -2901,61 +2901,211 @@ a.anchor-link {
     st.divider()
     st.header("🔭 오늘 밤 관측 조건")
 
-    if len(night_df) > 0:  
-            average_score = round(night_df["관측점수"].mean())
-            best_window = find_best_observation_window(night_df)
+    if len(night_df) > 0:
 
-            score_col1, score_col2 = st.columns(2)
-            score_col1.metric("⭐ 오늘 밤 평균 관측 점수", f"{average_score} / 100")
-            score_col2.metric("🌌 관측 등급", weather_score_grade(average_score))
-            st.progress(average_score / 100)
+        average_score = round(
+            night_df["관측점수"].mean()
+        )
 
-            if best_window:
-                best_start, best_end, best_score = best_window
-                st.success(
-                    "🔭 추천 관측 시간: "
-                    f"{best_start.strftime('%m/%d %H:%M')} ~ "
-                    f"{best_end.strftime('%m/%d %H:%M')}"
-                    f"  |  예상 점수 {best_score}/100"
-                )
+        night_grade = weather_score_grade(
+            average_score
+        )
 
-        
+        best_window = find_best_observation_window(
+            night_df
+        )
 
-            with st.expander("📊 시간별 상세 정보"):
-                table_df = night_df.copy()
-                table_df["시간"] = table_df["시간"].dt.strftime("%m/%d %H:%M")
-                table_df["시정"] = (table_df["시정"] / 1000).round(1)
-                table_df = table_df[
-                    [
-                        "시간",
-                        "관측점수",
-                        "구름량",
-                        "하층구름",
-                        "중층구름",
-                        "상층구름",
-                        "강수확률",
-                        "습도",
-                        "풍속",
-                        "시정",
-                    ]
-                ].rename(
-                    columns={
-                        "관측점수": "관측 점수",
-                        "구름량": "전체 구름 %",
-                        "하층구름": "하층 %",
-                        "중층구름": "중층 %",
-                        "상층구름": "상층 %",
-                        "강수확률": "강수확률 %",
-                        "습도": "습도 %",
-                        "풍속": "풍속 km/h",
-                        "시정": "시정 km",
-                    }
-                )
-                st.dataframe(table_df, use_container_width=True, hide_index=True)
+        if best_window:
+
+            best_start, best_end, best_score = best_window
+
+            recommended_time = (
+                f"{best_start.strftime('%m/%d %H:%M')}"
+                f" ~ "
+                f"{best_end.strftime('%m/%d %H:%M')}"
+            )
+
+            recommendation_text = (
+                f"🔭 {recommended_time}"
+                f" · 예상 {best_score}점"
+            )
+
+        else:
+
+            recommendation_text = (
+                "🔭 추천 시간 계산 불가"
+            )
+
+
+        st.markdown(
+            """
+            <style>
+            .night-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 9px;
+                margin-top: 8px;
+                margin-bottom: 9px;
+            }
+
+            .night-summary-card {
+                border: 1px solid rgba(128, 128, 128, 0.30);
+                border-radius: 14px;
+                padding: 14px 12px;
+                text-align: center;
+                min-width: 0;
+            }
+
+            .night-summary-label {
+                font-size: 13px;
+                opacity: 0.8;
+                margin-bottom: 5px;
+            }
+
+            .night-summary-value {
+                font-size: 26px;
+                font-weight: 800;
+                line-height: 1.2;
+            }
+
+            .night-summary-grade {
+                font-size: 18px;
+                font-weight: 700;
+                line-height: 1.3;
+            }
+
+            .night-recommendation {
+                border: 1px solid rgba(128, 128, 128, 0.30);
+                border-radius: 14px;
+                padding: 12px;
+                text-align: center;
+                font-size: 14px;
+                font-weight: 700;
+                margin-bottom: 16px;
+            }
+
+            @media (max-width: 768px) {
+
+                .night-summary-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 7px;
+                }
+
+                .night-summary-card {
+                    padding: 12px 7px;
+                }
+
+                .night-summary-label {
+                    font-size: 12px;
+                }
+
+                .night-summary-value {
+                    font-size: 24px;
+                }
+
+                .night-summary-grade {
+                    font-size: 15px;
+                }
+
+                .night-recommendation {
+                    font-size: 13px;
+                    padding: 10px 7px;
+                }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+        night_summary_html = (
+            '<div class="night-summary-grid">'
+
+            '<div class="night-summary-card">'
+            '<div class="night-summary-label">'
+            '⭐ 평균 관측 점수'
+            '</div>'
+            f'<div class="night-summary-value">{average_score}점</div>'
+            '</div>'
+
+            '<div class="night-summary-card">'
+            '<div class="night-summary-label">'
+            '🌌 관측 등급'
+            '</div>'
+            f'<div class="night-summary-grade">{night_grade}</div>'
+            '</div>'
+
+            '</div>'
+
+            f'<div class="night-recommendation">'
+            f'{recommendation_text}'
+            '</div>'
+        )
+
+        st.markdown(
+            night_summary_html,
+            unsafe_allow_html=True
+        )
+
+
+        with st.expander("📊 시간별 상세 정보"):
+
+            table_df = night_df.copy()
+
+            table_df["시간"] = (
+                table_df["시간"]
+                .dt.strftime("%m/%d %H:%M")
+            )
+
+            table_df["시정"] = (
+                table_df["시정"] / 1000
+            ).round(1)
+
+            table_df = table_df[
+                [
+                    "시간",
+                    "관측점수",
+                    "구름량",
+                    "하층구름",
+                    "중층구름",
+                    "상층구름",
+                    "강수확률",
+                    "습도",
+                    "풍속",
+                    "시정",
+                ]
+            ].rename(
+                columns={
+                    "관측점수": "관측 점수",
+                    "구름량": "전체 구름 %",
+                    "하층구름": "하층 %",
+                    "중층구름": "중층 %",
+                    "상층구름": "상층 %",
+                    "강수확률": "강수확률 %",
+                    "습도": "습도 %",
+                    "풍속": "풍속 km/h",
+                    "시정": "시정 km",
+                }
+            )
+
+            st.dataframe(
+                table_df,
+                use_container_width=True,
+                hide_index=True
+            )
+
     else:
-            average_score = 70
-            st.warning("오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다.")
 
+        average_score = 70
+
+        st.warning(
+            "오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다."
+        )
+
+
+    # --------------------------------------
+    # 천문 계산 엔진
+    # --------------------------------------
         # --------------------------------------
         # 천문 계산 엔진
         # --------------------------------------
@@ -2970,20 +3120,131 @@ a.anchor-link {
     st.header("🪐 현재 행성 관측 정보")
 
     with st.spinner("행성 위치를 계산하는 중..."):
-            planet_df = engine.get_planets()
+        planet_df = engine.get_planets()
 
-    st.dataframe(planet_df, use_container_width=True, hide_index=True)
+    visible_planets = planet_df[
+        planet_df["관측"] == "✅ 관측 가능"
+    ]
 
-    visible_planets = planet_df[planet_df["관측"] == "✅ 관측 가능"]
+    total_planets = len(planet_df)
+    visible_count = len(visible_planets)
 
-    if len(visible_planets) > 0:
-            st.success(
-                "🔭 현재 관측 추천: "
-                + ", ".join(visible_planets["천체"].tolist())
-            )
+
+    st.markdown(
+        """
+        <style>
+        .planet-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+            margin-bottom: 10px;
+        }
+
+        .planet-summary-card {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 14px;
+            padding: 13px 10px;
+            text-align: center;
+        }
+
+        .planet-summary-label {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .planet-summary-value {
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .planet-recommendation {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 14px;
+            padding: 11px 10px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        @media (max-width: 768px) {
+
+            .planet-summary-card {
+                padding: 11px 7px;
+            }
+
+            .planet-summary-label {
+                font-size: 12px;
+            }
+
+            .planet-summary-value {
+                font-size: 22px;
+            }
+
+            .planet-recommendation {
+                font-size: 13px;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    planet_summary_html = (
+        '<div class="planet-summary-grid">'
+
+        '<div class="planet-summary-card">'
+        '<div class="planet-summary-label">🪐 전체 행성</div>'
+        f'<div class="planet-summary-value">{total_planets}개</div>'
+        '</div>'
+
+        '<div class="planet-summary-card">'
+        '<div class="planet-summary-label">🔭 현재 관측 가능</div>'
+        f'<div class="planet-summary-value">{visible_count}개</div>'
+        '</div>'
+
+        '</div>'
+    )
+
+    st.markdown(
+        planet_summary_html,
+        unsafe_allow_html=True
+    )
+
+
+    if visible_count > 0:
+
+        visible_names = ", ".join(
+            visible_planets["천체"].tolist()
+        )
+
+        st.markdown(
+            (
+                '<div class="planet-recommendation">'
+                f'🔭 현재 추천: {visible_names}'
+                '</div>'
+            ),
+            unsafe_allow_html=True
+        )
+
     else:
-            st.warning("현재 조건에서 고도 15° 이상인 관측 추천 행성이 없습니다.")
 
+        st.warning(
+            "현재 조건에서 고도 15° 이상인 "
+            "관측 추천 행성이 없습니다."
+        )
+
+
+    with st.expander("📊 행성 상세 정보"):
+
+        st.dataframe(
+            planet_df,
+            use_container_width=True,
+            hide_index=True
+        )
     st.subheader("⏰ 오늘 밤 행성 출·남중·몰 / 최적 관측시간")
     st.caption(
             "출·몰 시각은 고도 0° 교차, 관측 가능 시간은 천체 고도 15° 이상 + "
