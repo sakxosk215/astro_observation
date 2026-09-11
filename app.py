@@ -25,6 +25,189 @@ st.set_page_config(
 # 모바일 Pull-to-Refresh
 # ==========================================
 
+# ==========================================
+# 오른쪽 아래 새로고침 버튼
+# ==========================================
+
+components.html(
+    """
+    <script>
+    const win = window.parent;
+    const doc = win.document;
+
+    // Streamlit 재실행 시 기존 버튼 제거
+    const oldButton =
+        doc.getElementById(
+            "astro-floating-refresh"
+        );
+
+    if (oldButton) {
+        oldButton.remove();
+    }
+
+    const oldStyle =
+        doc.getElementById(
+            "astro-floating-refresh-style"
+        );
+
+    if (oldStyle) {
+        oldStyle.remove();
+    }
+
+
+    // 버튼 스타일
+    const style =
+        doc.createElement("style");
+
+    style.id =
+        "astro-floating-refresh-style";
+
+    style.textContent = `
+        #astro-floating-refresh {
+            position: fixed;
+
+            right: 16px;
+            bottom: calc(
+                18px + env(safe-area-inset-bottom)
+            );
+
+            width: 52px;
+            height: 52px;
+
+            border: 1px solid
+                rgba(128, 128, 128, 0.35);
+
+            border-radius: 50%;
+
+            background:
+                rgba(30, 30, 30, 0.88);
+
+            color: white;
+
+            font-size: 25px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            cursor: pointer;
+
+            z-index: 999999;
+
+            box-shadow:
+                0 4px 14px
+                rgba(0, 0, 0, 0.25);
+
+            -webkit-tap-highlight-color:
+                transparent;
+
+            -webkit-user-select: none;
+            user-select: none;
+
+            transition:
+                transform 0.15s ease,
+                opacity 0.15s ease;
+        }
+
+        #astro-floating-refresh:active {
+            transform: scale(0.90);
+        }
+
+        #astro-floating-refresh.loading {
+            animation:
+                astro-refresh-spin
+                0.65s
+                linear
+                infinite;
+        }
+
+        @keyframes astro-refresh-spin {
+
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    `;
+
+    doc.head.appendChild(style);
+
+
+    // 버튼 생성
+    const button =
+        doc.createElement("button");
+
+    button.id =
+        "astro-floating-refresh";
+
+    button.type = "button";
+
+    button.innerHTML = "↻";
+
+    button.setAttribute(
+        "aria-label",
+        "새로고침"
+    );
+
+    button.setAttribute(
+        "title",
+        "새로고침"
+    );
+
+
+    // 버튼 클릭
+    button.addEventListener(
+        "click",
+        function() {
+
+            if (
+                button.classList.contains(
+                    "loading"
+                )
+            ) {
+                return;
+            }
+
+            button.classList.add(
+                "loading"
+            );
+
+
+            // 새로고침 후 맨 위에서 시작
+            win.sessionStorage.setItem(
+                "astroForceScrollTop",
+                "1"
+            );
+
+            win.scrollTo(
+                0,
+                0
+            );
+
+
+            setTimeout(
+                function() {
+
+                    win.location.reload();
+
+                },
+                300
+            );
+        }
+    );
+
+
+    doc.body.appendChild(
+        button
+    );
+    </script>
+    """,
+    height=0
+)
+
 components.html(
     """
     <script>
