@@ -3802,56 +3802,57 @@ a.anchor-link {
             )
 
 
-    st.subheader("🔎 M1 ~ M110 전체 목록")
+        with st.expander(
+        "🔎 M1 ~ M110 전체 목록",
+        expanded=False
+    ):
 
-    filter_col1, filter_col2 = st.columns(2)
+         filter_col1, filter_col2 = st.columns(2)
 
-    only_observable = filter_col1.checkbox(
-        "현재 관측 가능한 천체만",
-        value=True
-    )
+        only_observable = filter_col1.checkbox(
+            "현재 관측 가능한 천체만",
+            value=True
+        )
 
-    type_options = [
-        "전체"
-    ] + sorted(
-        messier_df["종류"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
+        type_options = [
+            "전체"
+        ] + sorted(
+            messier_df["종류"]
+            .dropna()
+            .unique()
+            .tolist()
+        )
 
-    selected_type = filter_col2.selectbox(
-        "천체 종류",
-        type_options
-    )
+        selected_type = filter_col2.selectbox(
+            "천체 종류",
+            type_options
+        )
 
-    display_messier = messier_df.copy()
+        display_messier = messier_df.copy()
 
-    if only_observable:
+        if only_observable:
 
-        display_messier = display_messier[
-            display_messier["추천점수"] > 0
-        ]
+            display_messier = display_messier[
+                display_messier["추천점수"] > 0
+            ]
 
-    if selected_type != "전체":
+        if selected_type != "전체":
 
-        display_messier = display_messier[
-            display_messier["종류"] == selected_type
-        ]
+            display_messier = display_messier[
+                display_messier["종류"] == selected_type
+            ]
 
-    st.dataframe(
-        display_messier,
-        use_container_width=True,
-        hide_index=True
-    )
+        st.dataframe(
+            display_messier,
+            use_container_width=True,
+            hide_index=True
+        )
 
-    st.caption(
-        "※ 메시에 추천점수는 동아리용 v1 경험식입니다. "
-        "확장천체의 겉보기등급만으로 실제 관측 난이도를 완전히 표현할 수 없으며, "
-        "현재 버전에는 시간대별 천체 고도와 최적 관측시간이 추가되었습니다. "
-        "다음 버전에서 광공해·천문박명·시상/투명도 등을 "
-        "더 정교하게 반영할 예정입니다."
-    )
+        st.caption(
+            "※ 메시에 추천점수는 동아리용 v1 경험식입니다. "
+            "현재 버전은 시간대별 천체 고도와 최적 관측시간을 반영하며, "
+            "광공해·시상·투명도 등은 추후 더 정교하게 반영할 예정입니다."
+        )
 
 
 except requests.exceptions.RequestException as e:
