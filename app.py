@@ -3599,18 +3599,6 @@ a.anchor-link {
         messier_df["추천점수"] > 0
     ].copy()
 
-    mcol1, mcol2, mcol3 = st.columns(3)
-
-    mcol1.metric(
-        "🔭 현재 관측 가능",
-        f"{len(observable_df)}개"
-    )
-
-    mcol2.metric(
-        "🌙 달 밝기",
-        f'{moon["밝기"]:.1f}%'
-    )
-
     if len(observable_df) > 0:
 
         best_messier = observable_df.iloc[0]
@@ -3619,18 +3607,124 @@ a.anchor-link {
         if best_messier["이름"]:
             best_label += f' {best_messier["이름"]}'
 
-        mcol3.metric(
-            "🏆 현재 1순위",
-            best_label,
-            f'{best_messier["추천점수"]}점',
+        best_score = int(
+            best_messier["추천점수"]
         )
 
     else:
 
-        mcol3.metric(
-            "🏆 현재 1순위",
-            "없음"
+        best_label = "없음"
+        best_score = 0
+
+
+    st.markdown(
+        """
+        <style>
+        .messier-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .messier-summary-card {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 14px;
+            padding: 12px 8px;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .messier-summary-label {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .messier-summary-value {
+            font-size: 23px;
+            font-weight: 800;
+        }
+
+        .messier-best-card {
+            border: 1px solid rgba(128, 128, 128, 0.30);
+            border-radius: 14px;
+            padding: 12px 10px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .messier-best-label {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 4px;
+        }
+
+        .messier-best-name {
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .messier-best-score {
+            font-size: 13px;
+            margin-top: 3px;
+        }
+
+        @media (max-width: 768px) {
+
+            .messier-summary-label {
+                font-size: 12px;
+            }
+
+            .messier-summary-value {
+                font-size: 21px;
+            }
+
+            .messier-best-name {
+                font-size: 17px;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    messier_summary_html = (
+        '<div class="messier-summary-grid">'
+
+        '<div class="messier-summary-card">'
+        '<div class="messier-summary-label">🔭 현재 관측 가능</div>'
+        f'<div class="messier-summary-value">{len(observable_df)}개</div>'
+        '</div>'
+
+        '<div class="messier-summary-card">'
+        '<div class="messier-summary-label">🌙 달 밝기</div>'
+        f'<div class="messier-summary-value">{moon["밝기"]:.1f}%</div>'
+        '</div>'
+
+        '</div>'
+
+        '<div class="messier-best-card">'
+        '<div class="messier-best-label">🏆 현재 1순위</div>'
+        f'<div class="messier-best-name">{best_label}</div>'
+    )
+
+    if best_score > 0:
+
+        messier_summary_html += (
+            f'<div class="messier-best-score">'
+            f'추천점수 {best_score}점'
+            '</div>'
         )
+
+    messier_summary_html += '</div>'
+
+    st.markdown(
+        messier_summary_html,
+        unsafe_allow_html=True
+    )
 
 
     st.subheader("🏆 오늘의 메시에 추천 TOP 10")
