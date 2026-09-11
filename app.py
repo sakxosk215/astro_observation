@@ -3727,78 +3727,79 @@ a.anchor-link {
     )
 
 
-    st.subheader("🏆 오늘의 메시에 추천 TOP 10")
+    with st.expander("🏆 오늘의 메시에 추천 TOP 10", expanded=False):
 
-    if len(observable_df) > 0:
+        if len(observable_df) > 0:
 
-        top10 = observable_df.head(10)[
-            [
-                "메시에",
-                "이름",
-                "종류",
-                "등급",
-                "고도 °",
-                "방향",
-                "달과 각거리 °",
-                "추천점수",
-                "추천",
+            top10 = observable_df.head(10)[
+                [
+                    "메시에",
+                    "이름",
+                    "종류",
+                    "등급",
+                    "고도 °",
+                    "방향",
+                    "달과 각거리 °",
+                    "추천점수",
+                    "추천",
+                ]
             ]
-        ]
 
-        st.dataframe(
-            top10,
-            use_container_width=True,
-            hide_index=True
-        )
+            st.dataframe(
+                top10,
+                use_container_width=True,
+                hide_index=True
+            )
 
-    else:
+        else:
 
-        st.warning(
-            "현재 시각에는 고도 15° 이상이면서 "
-            "충분히 어두운 조건의 메시에 천체가 없습니다."
-        )
+            st.warning(
+                "현재 시각에는 고도 15° 이상이면서 "
+                "충분히 어두운 조건의 메시에 천체가 없습니다."
+            )
 
 
-    st.subheader(
-        "⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"
-    )
-
-    st.caption(
-        "30분 간격의 날씨 점수, 천체 고도, "
-        "달 밝기·각거리, 겉보기등급을 함께 계산해 "
-        "오늘 밤 가장 좋은 시간대를 찾습니다."
-    )
-
-    weather_timeline = build_half_hour_weather_timeline(
-        night_df
-    )
-
-    with st.spinner(
-        "M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."
+        with st.expander(
+        "⏰ 오늘 밤 메시에 최적 관측시간 TOP 10",
+        expanded=False
     ):
 
-        messier_best_df = engine.get_messier_best_times(
-            messier_catalog,
-            weather_timeline,
+         st.caption(
+            "30분 간격의 날씨 점수, 천체 고도, "
+            "달 밝기·각거리, 겉보기등급을 함께 계산해 "
+            "오늘 밤 가장 좋은 시간대를 찾습니다."
         )
 
-    tonight_messier = messier_best_df[
-        messier_best_df["오늘 최고점수"] > 0
-    ].copy()
-
-    if len(tonight_messier) > 0:
-
-        st.dataframe(
-            tonight_messier.head(10),
-            use_container_width=True,
-            hide_index=True,
+        weather_timeline = build_half_hour_weather_timeline(
+            night_df
         )
 
-    else:
+        with st.spinner(
+            "M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."
+        ):
 
-        st.warning(
-            "오늘 밤 추천 가능한 메시에 천체를 찾지 못했습니다."
-        )
+            messier_best_df = engine.get_messier_best_times(
+                messier_catalog,
+                weather_timeline,
+            )
+
+        tonight_messier = messier_best_df[
+            messier_best_df["오늘 최고점수"] > 0
+        ].copy()
+
+        if len(tonight_messier) > 0:
+
+            st.dataframe(
+                tonight_messier.head(10),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        else:
+
+            st.warning(
+                "오늘 밤 추천 가능한 메시에 천체를 찾지 못했습니다."
+            )
 
 
     st.subheader("🔎 M1 ~ M110 전체 목록")
