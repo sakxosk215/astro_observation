@@ -3879,49 +3879,7 @@ a.anchor-link {
 
     with st.expander("🔎 M1 ~ M110 전체 목록"):
 
-        filter_col1, filter_col2 = st.columns(2)
-
-        only_observable = filter_col1.checkbox(
-            "현재 관측 가능한 천체만",
-            value=True
-        )
-
-        type_options = [
-            "전체"
-        ] + sorted(
-            messier_df["종류"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-        selected_type = filter_col2.selectbox(
-            "천체 종류",
-            type_options
-        )
-
-        display_messier = messier_df.copy()
-
-        if only_observable:
-
-            display_messier = display_messier[
-                display_messier["추천점수"] > 0
-            ]
-
-        if selected_type != "전체":
-
-            display_messier = display_messier[
-                display_messier["종류"] == selected_type
-            ]
-
-        st.dataframe(
-            display_messier,
-            use_container_width=True,
-            hide_index=True
-        )
-
-
-    st.caption(
+     st.caption(
         "※ 메시에 추천점수는 동아리용 경험식이며 "
         "실제 관측 환경에 따라 차이가 있을 수 있습니다."
     )
@@ -4144,6 +4102,7 @@ a.anchor-link {
         with st.expander(
         "🔎 M1 ~ M110 전체 목록",
         expanded=False
+    
     ):
 
          filter_col1, filter_col2 = st.columns(2)
