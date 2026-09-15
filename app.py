@@ -2624,12 +2624,10 @@ a.anchor-link {
         unsafe_allow_html=True
     )
 
-    # ======================================
+      # ======================================
     # 7일 상세 예보 표
     # ======================================
-    # ======================================
-    # 7일 상세 예보 표
-    # ======================================
+
     preferred_columns = [
         "날짜",
         "천문박명 종료",
@@ -2643,16 +2641,9 @@ a.anchor-link {
         "달 상태",
         "최적 시간",
         "최고 예상점수",
-        "전체 구름 %",
-        "하층 구름 %",
-        "중층 구름 %",
-        "상층 구름 %",
-        "흐린 시간 비율 %",
-        "매우 흐린 시간 %",
         "평균 강수확률 %",
         "평균 습도 %",
-        "평균 시정 km",
-        "평균 풍속 km/h"
+        
     ]
 
     existing_columns = [
@@ -2661,45 +2652,21 @@ a.anchor-link {
         if col in weekly_df.columns
     ]
 
-    remaining_columns = [
-        col
-        for col in weekly_df.columns
-        if col not in existing_columns
-    ]
-
     weekly_display_df = weekly_df[
-        existing_columns + remaining_columns
-    ]
+        existing_columns
+    ].copy()
 
-    weekly_cloud_columns = [
-        "평균 구름 %",
-        "전체 구름 %",
-        "평균 구름 %",
-        "하층 구름 %",
-        "중층 구름 %",
-        "상층 구름 %"
-    ]
-
-    weekly_cloud_columns = [
-        col
-        for col in weekly_cloud_columns
-        if col in weekly_display_df.columns
-    ]
-
-    styled_weekly_df = weekly_display_df.style.map(
-        cloud_cell_style,
-        subset=weekly_cloud_columns
+    weekly_display_df = weekly_display_df.reset_index(
+        drop=True
     )
 
     st.dataframe(
-        styled_weekly_df,
+        weekly_display_df,
         use_container_width=True,
         hide_index=True
     )
-    
 
-
-        # ======================================
+    # ======================================
     # 이번 주 관측 추천 TOP 3
     # ======================================
 
