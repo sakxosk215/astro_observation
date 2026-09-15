@@ -1547,6 +1547,88 @@ def weather_score_grade(score):
     else:
         return "🔴 관측 비추천"
 
+def cloud_cell_style(value):
+
+    if pd.isna(value):
+        return ""
+
+    value = float(value)
+
+    if value < 20:
+        return "background-color: #080b4f; color: white;"
+
+    elif value < 40:
+        return "background-color: #1c205f; color: white;"
+
+    elif value < 60:
+        return "background-color: #4d4f70; color: white;"
+
+    elif value < 80:
+        return "background-color: #8a8b91; color: white;"
+
+    else:
+        return "background-color: #c8c8b5; color: black;"
+
+def style_cloud_dataframe(df):
+    cloud_columns = [
+        "구름량",
+        "전체구름",
+        "하층구름",
+        "중층구름",
+        "상층구름",
+        "유효구름량",
+
+        "평균 구름 %",
+        "전체 구름 %",
+        "하층 구름 %",
+        "중층 구름 %",
+        "상층 구름 %",
+
+        "구름 40% 이상 비율 %",
+        "구름 70% 이상 비율 %",
+
+        "Best Match 평균 구름 %",
+        "ECMWF 평균 구름 %",
+        "GFS 평균 구름 %",
+        "3모델 평균 구름 %"
+    ]
+
+    existing_cloud_columns = [
+        col for col in cloud_columns
+        if col in df.columns
+    ]
+
+    if not existing_cloud_columns:
+        return df
+
+    cloud_cmap = LinearSegmentedColormap.from_list(
+        "cloud_map",
+        [
+            "#020633",  # 매우 낮음
+            "#1b2370",
+            "#4d538f",
+            "#8d90a4",
+            "#d7d2b8"   # 매우 높음
+        ]
+    )
+
+    format_dict = {
+        col: "{:.0f}"
+        for col in existing_cloud_columns
+    }
+
+    styled_df = (
+        df.style
+        .background_gradient(
+            subset=existing_cloud_columns,
+            cmap=cloud_cmap,
+            vmin=0,
+            vmax=100
+        )
+        .format(format_dict, na_rep="-")
+    )
+
+    return styled_df
 
 def moon_observation_penalty(brightness, altitude):
 
@@ -2952,8 +3034,18 @@ a.anchor-link {
                 }
             )
 
+            styled_table_df = table_df.style.map(
+                cloud_cell_style,
+                subset=[
+                    "전체 구름 %",
+                    "하층 %",
+                    "중층 %",
+                    "상층 %"
+                ]
+            )
+
             st.dataframe(
-                table_df,
+                styled_table_df,
                 use_container_width=True,
                 hide_index=True
             )
