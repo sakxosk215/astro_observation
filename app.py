@@ -1518,226 +1518,7 @@ def get_weather(latitude, longitude):
 
     return response.json()
 
-@st.cache_data(ttl=600)
-def get_gfs_weather(latitude, longitude):
 
-    url = "https://api.open-meteo.com/v1/gfs"
-
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "timezone": "Asia/Seoul",
-        "forecast_days": 8,
-
-        "hourly": (
-            "cloud_cover,"
-            "cloud_cover_low,"
-            "cloud_cover_mid,"
-            "cloud_cover_high,"
-            "precipitation,"
-            "visibility,"
-            "wind_speed_10m"
-        )
-    }
-
-    response = requests.get(
-        url,
-        params=params,
-        timeout=10
-    )
-
-    response.raise_for_status()
-
-    return response.json()
-
-@st.cache_data(ttl=600)
-def get_ecmwf_weather(latitude, longitude):
-
-    url = "https://api.open-meteo.com/v1/ecmwf"
-
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "timezone": "Asia/Seoul",
-        "forecast_days": 8,
-
-        "hourly": (
-            "cloud_cover,"
-            "cloud_cover_low,"
-            "cloud_cover_mid,"
-            "cloud_cover_high,"
-            "precipitation,"
-            "visibility,"
-            "wind_speed_10m"
-        )
-    }
-
-    response = requests.get(
-        url,
-        params=params,
-        timeout=10
-    )
-
-    response.raise_for_status()
-
-    return response.json()
-
-def build_ecmwf_cloud_forecast(ecmwf_weather, engine):
-
-    hourly = ecmwf_weather["hourly"]
-
-    df = pd.DataFrame({
-        "시간": pd.to_datetime(hourly["time"]),
-        "전체구름": hourly["cloud_cover"],
-        "하층구름": hourly["cloud_cover_low"],
-        "중층구름": hourly["cloud_cover_mid"],
-        "상층구름": hourly["cloud_cover_high"]
-    })
-
-    rows = []
-
-    dates = sorted(
-        df["시간"].dt.strftime("%Y-%m-%d").unique()
-    )
-
-    for date in dates[:7]:
-
-        astro_start, astro_end = (
-            engine.get_astronomical_night(date)
-        )
-
-        if astro_start is None or astro_end is None:
-            continue
-        # ==================================
-        # 해당 밤 중간 시각의 달 상태
-        # ==================================
-
-       
-        astro_start = astro_start.replace(
-            tzinfo=None
-        )
-
-        astro_end = astro_end.replace(
-            tzinfo=None
-        )
-
-        night = df[
-            (df["시간"] >= astro_start)
-            &
-            (df["시간"] <= astro_end)
-        ].copy()
-
-        if len(night) == 0:
-            continue
-
-        night["유효구름량"] = night.apply(
-            lambda row: max(
-                row["전체구름"],
-                row["하층구름"],
-                row["중층구름"] * 0.95,
-                row["상층구름"] * 0.85
-            ),
-            axis=1
-        )
-
-        rows.append({
-            "날짜": date,
-            "ECMWF 평균 구름 %":
-                round(night["유효구름량"].mean()),
-            "ECMWF 전체 구름 %":
-                round(night["전체구름"].mean()),
-            "ECMWF 하층 구름 %":
-                round(night["하층구름"].mean()),
-            "ECMWF 중층 구름 %":
-                round(night["중층구름"].mean()),
-            "ECMWF 상층 구름 %":
-                round(night["상층구름"].mean())
-        })
-
-    return pd.DataFrame(rows)
-
-def build_gfs_cloud_forecast(gfs_weather, engine):
-
-    hourly = gfs_weather["hourly"]
-
-    hourly_df = pd.DataFrame({
-        "시간": pd.to_datetime(hourly["time"]),
-        "전체구름": hourly["cloud_cover"],
-        "하층구름": hourly["cloud_cover_low"],
-        "중층구름": hourly["cloud_cover_mid"],
-        "상층구름": hourly["cloud_cover_high"]
-    })
-
-    rows = []
-
-    start_date = hourly_df["시간"].dt.date.min()
-
-    for day_offset in range(7):
-
-        date = start_date + timedelta(days=day_offset)
-
-        astro = engine.get_astronomical_night(
-            date.strftime("%Y-%m-%d")
-        )
-
-        astro_start = astro[0]
-        astro_end = astro[1]
-
-        if astro_start is None or astro_end is None:
-            continue
-
-        astro_start_naive = astro_start.replace(
-            tzinfo=None
-        )
-
-        astro_end_naive = astro_end.replace(
-            tzinfo=None
-        )
-
-        night = hourly_df[
-            (hourly_df["시간"] >= astro_start_naive)
-            &
-            (hourly_df["시간"] <= astro_end_naive)
-        ].copy()
-
-        if len(night) == 0:
-            continue
-
-        night["유효구름량"] = night.apply(
-            lambda row: max(
-                row["전체구름"],
-                row["하층구름"],
-                row["중층구름"] * 0.95,
-                row["상층구름"] * 0.85
-            ),
-            axis=1
-        )
-
-        rows.append({
-            "날짜": date.strftime("%Y-%m-%d"),
-
-            "GFS 평균 구름 %": round(
-                night["유효구름량"].mean()
-            ),
-
-            "GFS 전체 구름 %": round(
-                night["전체구름"].mean()
-            ),
-
-            "GFS 하층 구름 %": round(
-                night["하층구름"].mean()
-            ),
-
-            "GFS 중층 구름 %": round(
-                night["중층구름"].mean()
-            ),
-
-            "GFS 상층 구름 %": round(
-                night["상층구름"].mean()
-            )
-        })
-
-    return pd.DataFrame(rows)
 
 @st.cache_data
 def load_messier_catalog():
@@ -2426,28 +2207,8 @@ try:
     current = weather["current"]
 
     engine = AstronomyEngine(
-        latitude,
-        longitude
-    )
-
-    ecmwf_weather = get_ecmwf_weather(
-        latitude,
-        longitude
-    )
-
-    ecmwf_df = build_ecmwf_cloud_forecast(
-        ecmwf_weather,
-        engine
-    )
-
-    gfs_weather = get_gfs_weather(
     latitude,
     longitude
-)
-
-    gfs_df = build_gfs_cloud_forecast(
-    gfs_weather,
-    engine
 )
 
     st.subheader(f"📍 현재 관측지: {location_name}")
@@ -2565,121 +2326,10 @@ a.anchor-link {
 
     st.header("📅 7일 관측 예보")
 
-    weekly_df = build_weekly_forecast(weather, engine)
-
-    # 기존 Open-Meteo Best Match 구름값 이름 추가
-    weekly_df["Best Match 평균 구름 %"] = (
-        weekly_df["평균 구름 %"]
+    weekly_df = build_weekly_forecast(
+        weather,
+        engine
     )
-
-    # ECMWF 예보를 날짜 기준으로 합치기
-    weekly_df = weekly_df.merge(
-        ecmwf_df,
-        on="날짜",
-        how="left"
-    )
-
-    weekly_df = weekly_df.merge(
-    gfs_df,
-    on="날짜",
-    how="left"
-)
-
-    model_cloud_columns = [
-    "Best Match 평균 구름 %",
-    "ECMWF 평균 구름 %",
-    "GFS 평균 구름 %"
-]
-
-    weekly_df["3모델 평균 구름 %"] = (
-    weekly_df[model_cloud_columns]
-    .mean(axis=1)
-    .round()
-)
-
-    weekly_df["모델 차이 %p"] = (
-    weekly_df[model_cloud_columns].max(axis=1)
-    - weekly_df[model_cloud_columns].min(axis=1)
-).round()
-
-    weekly_df["모델 일치도"] = (
-        weekly_df["모델 차이 %p"]
-        .apply(model_agreement)
-    )
-
-    model_agreement_column = weekly_df.pop(
-        "모델 일치도"
-    )
-
-    grade_position = (
-        weekly_df.columns.get_loc("등급") + 1
-    )
-
-    weekly_df.insert(
-        grade_position,
-        "모델 일치도",
-        model_agreement_column
-    )
-
-    weekly_df["기존 관측 점수"] = (
-        weekly_df["관측 점수"]
-    )
-
-    weekly_df["3모델 구름 점수"] = (
-        weekly_df["3모델 평균 구름 %"]
-        .apply(consensus_cloud_score)
-    )
-
-    weekly_df["모델 불일치 패널티"] = (
-        weekly_df["모델 차이 %p"]
-        .apply(
-            lambda diff:
-                0
-                if pd.isna(diff) or diff <= 10
-                else min(
-                    20,
-                    (diff - 10) * 0.4
-                )
-        )
-    )
-
-    weekly_df["최종 관측 점수"] = (
-        weekly_df["기존 관측 점수"] * 0.65
-        + weekly_df["3모델 구름 점수"] * 0.35
-        - weekly_df["모델 불일치 패널티"]
-    )
-
-    weekly_df["최종 관측 점수"] = (
-        weekly_df["최종 관측 점수"]
-        .clip(0, 100)
-    )
-
-
-    # 3모델 평균 구름이 많으면
-    # 점수가 지나치게 높아지지 않도록 제한
-    weekly_df.loc[
-        weekly_df["3모델 평균 구름 %"] >= 80,
-        "최종 관측 점수"
-    ] = weekly_df.loc[
-        weekly_df["3모델 평균 구름 %"] >= 80,
-        "최종 관측 점수"
-    ].clip(upper=30)
-
-    weekly_df.loc[
-        weekly_df["3모델 평균 구름 %"] >= 60,
-        "최종 관측 점수"
-    ] = weekly_df.loc[
-        weekly_df["3모델 평균 구름 %"] >= 60,
-        "최종 관측 점수"
-    ].clip(upper=50)
-
-    weekly_df.loc[
-        weekly_df["3모델 평균 구름 %"] >= 40,
-        "최종 관측 점수"
-    ] = weekly_df.loc[
-        weekly_df["3모델 평균 구름 %"] >= 40,
-        "최종 관측 점수"
-    ].clip(upper=70)
 
     # ======================================
     # 달 밝기 / 고도에 따른 관측 감점
@@ -2698,50 +2348,17 @@ a.anchor-link {
         .apply(moon_penalty_label)
     )
 
-    moon_effect_column = weekly_df.pop(
-        "달 영향"
-    )
-
-    moon_penalty_column = weekly_df.pop(
-        "달 감점"
-    )
-
-    agreement_position = (
-        weekly_df.columns.get_loc("모델 일치도") + 1
-    )
-
-    weekly_df.insert(
-        agreement_position,
-        "달 영향",
-        moon_effect_column
-    )
-
-    weekly_df.insert(
-        agreement_position + 1,
-        "달 감점",
-        moon_penalty_column
-    )
-
-    weekly_df["최종 관측 점수"] = (
-        weekly_df["최종 관측 점수"]
+    # Open-Meteo 날씨 점수에 달 영향만 적용
+    weekly_df["관측 점수"] = (
+        weekly_df["관측 점수"]
         - weekly_df["달 감점"]
     )
 
-    weekly_df["최종 관측 점수"] = (
-        weekly_df["최종 관측 점수"]
+    weekly_df["관측 점수"] = (
+        weekly_df["관측 점수"]
         .clip(0, 100)
-    )
-
-    weekly_df["최종 관측 점수"] = (
-        weekly_df["최종 관측 점수"]
         .round()
         .astype(int)
-    )
-
-
-    # 기존 '관측 점수'를 최종 점수로 교체
-    weekly_df["관측 점수"] = (
-        weekly_df["최종 관측 점수"]
     )
 
     weekly_df["등급"] = (
@@ -2749,155 +2366,11 @@ a.anchor-link {
         .apply(weather_score_grade)
     )
 
-        # ======================================
+    # ======================================
     # 7일 관측 요약 카드
     # ======================================
 
     st.subheader("🔭 7일 관측 요약")
-
-    card_df = weekly_df.head(7).reset_index(
-        drop=True
-    )
-
-    st.markdown(
-        """
-        <style>
-        .weekly-card-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 14px;
-            margin-top: 10px;
-            margin-bottom: 25px;
-        }
-
-        .weekly-card {
-            border: 1px solid rgba(128, 128, 128, 0.35);
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .weekly-card-date {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 14px;
-        }
-
-        .weekly-card-score {
-            font-size: 30px;
-            font-weight: 800;
-            margin-bottom: 12px;
-        }
-
-        .weekly-card-info {
-            font-size: 14px;
-            line-height: 1.8;
-        }
-
-                .card-blue {
-            border-left: 5px solid #3b82f6;
-            background: rgba(59, 130, 246, 0.08);
-        }
-
-        .card-green {
-            border-left: 5px solid #22c55e;
-            background: rgba(34, 197, 94, 0.08);
-        }
-
-        .card-yellow {
-            border-left: 5px solid #eab308;
-            background: rgba(234, 179, 8, 0.08);
-        }
-
-        .card-orange {
-            border-left: 5px solid #f97316;
-            background: rgba(249, 115, 22, 0.08);
-        }
-
-        .card-red {
-            border-left: 5px solid #ef4444;
-            background: rgba(239, 68, 68, 0.08);
-        }
-
-        @media (max-width: 1100px) {
-            .weekly-card-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 650px) {
-            .weekly-card-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    card_html = '<div class="weekly-card-grid">'
-
-    for _, row in card_df.iterrows():
-
-        card_date = pd.to_datetime(
-            row["날짜"]
-        )
-
-        weekday_names = [
-            "월",
-            "화",
-            "수",
-            "목",
-            "금",
-            "토",
-            "일"
-        ]
-
-        weekday_name = weekday_names[
-            card_date.weekday()
-        ]
-
-        score = int(
-            row["관측 점수"]
-        )
-
-        if score >= 90:
-            status_class = "card-blue"
-
-        elif score >= 80:
-            status_class = "card-green"
-
-        elif score >= 65:
-            status_class = "card-yellow"
-
-        elif score >= 45:
-            status_class = "card-orange"
-
-        else:
-            status_class = "card-red"
-
-        card_html += (
-            f'<div class="weekly-card {status_class}">'
-            f'<div class="weekly-card-date">📅 {row["날짜"]}({weekday_name})</div>'
-            f'<div class="weekly-card-grade">{row["등급"]}</div>'
-            f'<div class="weekly-card-score">{score}점</div>'
-            '<div class="weekly-card-info">'
-            f'<b>모델 일치도</b> : {row["모델 일치도"]}<br>'
-            f'<b>달 영향</b> : {row["달 영향"]}<br>'
-            f'<b>어두운 시간</b> : {row["천문박명 종료"]} ~ {row["천문박명 시작"]}<br>'
-            f'<b>최적 시간</b> : {row["최적 시간"]}<br>'
-            f'<b>평균 구름</b> : {row["3모델 평균 구름 %"]:.0f}%'
-            '</div>'
-            '</div>'
-        )
-
-    card_html += '</div>'
-
-    st.markdown(
-        card_html,
-        unsafe_allow_html=True
-    )
-
 
     # ======================================
     # 7일 상세 예보 표
@@ -2908,7 +2381,6 @@ a.anchor-link {
         "천문박명 시작",
         "관측 점수",
         "등급",
-        "모델 일치도",
         "달 영향",
         "달 감점",
         "달 밝기 %",
@@ -2916,23 +2388,10 @@ a.anchor-link {
         "달 상태",
         "최적 시간",
         "최고 예상점수",
-        "3모델 평균 구름 %",
-        "Best Match 평균 구름 %",
-        "ECMWF 평균 구름 %",
-        "GFS 평균 구름 %",
-        "모델 차이 %p",
         "전체 구름 %",
         "하층 구름 %",
         "중층 구름 %",
         "상층 구름 %",
-        "ECMWF 전체 구름 %",
-        "ECMWF 하층 구름 %",
-        "ECMWF 중층 구름 %",
-        "ECMWF 상층 구름 %",
-        "GFS 전체 구름 %",
-        "GFS 하층 구름 %",
-        "GFS 중층 구름 %",
-        "GFS 상층 구름 %",
         "흐린 시간 비율 %",
         "매우 흐린 시간 %",
         "평균 강수확률 %",
@@ -3063,7 +2522,7 @@ a.anchor-link {
             f'<div class="top3-grade">{row["등급"]}</div>'
             '<div class="top3-info">'
             f'🔭 {row["최적 시간"]}<br>'
-            f'☁️ {row["3모델 평균 구름 %"]:.0f}%'
+            f'☁️ {row["평균 구름 %"]:.0f}%'
             '</div>'
             '</div>'
         )
@@ -3086,39 +2545,39 @@ a.anchor-link {
 
     if len(night_df) > 0:
 
-        average_score = round(
-            night_df["관측점수"].mean()
-        )
+        # ======================================
+        # 7일 예보의 오늘 날짜 점수를 그대로 사용
+        # ======================================
 
-        night_grade = weather_score_grade(
-            average_score
-        )
+        today_string = datetime.now(
+            KST
+        ).strftime("%Y-%m-%d")
 
-        best_window = find_best_observation_window(
-            night_df
-        )
+        today_forecast = weekly_df[
+            weekly_df["날짜"].astype(str)
+            == today_string
+        ]
 
-        if best_window:
+        if len(today_forecast) > 0:
 
-            best_start, best_end, best_score = best_window
+            today_row = today_forecast.iloc[0]
 
-            recommended_time = (
-                f"{best_start.strftime('%m/%d %H:%M')}"
-                f" ~ "
-                f"{best_end.strftime('%m/%d %H:%M')}"
+            average_score = int(
+                today_row["관측 점수"]
             )
 
-            recommendation_text = (
-                f"🔭 {recommended_time}"
-                f" · 예상 {best_score}점"
+            night_grade = (
+                today_row["등급"]
             )
 
         else:
 
-            recommendation_text = (
-                "🔭 추천 시간 계산 불가"
-            )
+            average_score = 0
+            night_grade = "⚪ 계산 불가"
 
+        best_window = find_best_observation_window(
+            night_df
+        )
 
         st.markdown(
             """
