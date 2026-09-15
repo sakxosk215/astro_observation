@@ -2671,8 +2671,28 @@ a.anchor-link {
         existing_columns + remaining_columns
     ]
 
+    weekly_cloud_columns = [
+        "평균 구름 %",
+        "전체 구름 %",
+        "평균 구름 %",
+        "하층 구름 %",
+        "중층 구름 %",
+        "상층 구름 %"
+    ]
+
+    weekly_cloud_columns = [
+        col
+        for col in weekly_cloud_columns
+        if col in weekly_display_df.columns
+    ]
+
+    styled_weekly_df = weekly_display_df.style.map(
+        cloud_cell_style,
+        subset=weekly_cloud_columns
+    )
+
     st.dataframe(
-        weekly_display_df,
+        styled_weekly_df,
         use_container_width=True,
         hide_index=True
     )
