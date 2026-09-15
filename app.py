@@ -2106,10 +2106,16 @@ def build_night_dataframe(weather):
             "시간": pd.to_datetime(hourly["time"]),
             "기온": hourly["temperature_2m"],
             "습도": hourly["relative_humidity_2m"],
+
+            # 화면 표시용
             "구름량": hourly["cloud_cover"],
+
+            # 7일 예보와 동일한 점수 계산용
+            "전체구름": hourly["cloud_cover"],
             "하층구름": hourly["cloud_cover_low"],
             "중층구름": hourly["cloud_cover_mid"],
             "상층구름": hourly["cloud_cover_high"],
+
             "강수확률": hourly["precipitation_probability"],
             "강수량": hourly["precipitation"],
             "풍속": hourly["wind_speed_10m"],
@@ -2118,18 +2124,42 @@ def build_night_dataframe(weather):
     )
 
     now = datetime.now(KST).replace(tzinfo=None)
-    sunrise_today = datetime.fromisoformat(weather["daily"]["sunrise"][0])
-    sunset_today = datetime.fromisoformat(weather["daily"]["sunset"][0])
-    sunrise_tomorrow = datetime.fromisoformat(weather["daily"]["sunrise"][1])
+
+    sunrise_today = datetime.fromisoformat(
+        weather["daily"]["sunrise"][0]
+    )
+
+    sunset_today = datetime.fromisoformat(
+        weather["daily"]["sunset"][0]
+    )
+
+    sunrise_tomorrow = datetime.fromisoformat(
+        weather["daily"]["sunrise"][1]
+    )
 
     if now < sunrise_today:
-        start_time = now.replace(minute=0, second=0, microsecond=0)
+
+        start_time = now.replace(
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+
         end_time = sunrise_today
+
     elif now < sunset_today:
+
         start_time = sunset_today
         end_time = sunrise_tomorrow
+
     else:
-        start_time = now.replace(minute=0, second=0, microsecond=0)
+
+        start_time = now.replace(
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+
         end_time = sunrise_tomorrow
 
     night_df = df[
@@ -2137,19 +2167,20 @@ def build_night_dataframe(weather):
         & (df["시간"] <= end_time)
     ].copy()
 
+    # ======================================
+    # 7일 예보와 같은 시간별 관측점수 계산
+    # ======================================
+
     night_df["관측점수"] = night_df.apply(
-        lambda row: calculate_observation_score(
-            row["구름량"],
-            row["강수확률"],
-            row["시정"],
-            row["풍속"],
-            row["습도"],
-        ),
-        axis=1,
+        hourly_weather_score,
+        axis=1
     )
 
-    return night_df.reset_index(drop=True), start_time, end_time
-
+    return (
+        night_df.reset_index(drop=True),
+        start_time,
+        end_time
+    )
 
 def find_best_observation_window(df):
     if len(df) == 0:
