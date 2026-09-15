@@ -1530,40 +1530,6 @@ def load_messier_catalog():
 # 관측 날씨 점수
 # ==========================================
 
-def calculate_observation_score(
-    cloud,
-    precipitation_probability,
-    visibility,
-    wind_speed,
-    humidity,
-):
-    cloud_score = max(0, 100 - cloud)
-    rain_score = max(0, 100 - precipitation_probability)
-
-    visibility_km = visibility / 1000
-    visibility_score = min(100, (visibility_km / 20) * 100)
-
-    if wind_speed <= 10:
-        wind_score = 100
-    else:
-        wind_score = max(0, 100 - ((wind_speed - 10) * 4))
-
-    if humidity <= 70:
-        humidity_score = 100
-    else:
-        humidity_score = max(0, 100 - ((humidity - 70) * 3.3))
-
-    final_score = (
-        cloud_score * 0.45
-        + rain_score * 0.25
-        + visibility_score * 0.15
-        + wind_score * 0.10
-        + humidity_score * 0.05
-    )
-
-    return round(final_score)
-
-
 def weather_score_grade(score):
 
     if score >= 90:
@@ -1581,47 +1547,6 @@ def weather_score_grade(score):
     else:
         return "🔴 관측 비추천"
 
-def model_agreement(model_difference):
-
-    if pd.isna(model_difference):
-        return "⚪ 판단 불가"
-
-    if model_difference <= 10:
-        return "🟢 높음"
-
-    elif model_difference <= 25:
-        return "🟡 보통"
-
-    else:
-        return "🔴 낮음"
-
-def consensus_cloud_score(avg_cloud):
-
-    if pd.isna(avg_cloud):
-        return 50
-
-    if avg_cloud <= 10:
-        score = 100
-
-    elif avg_cloud <= 25:
-        score = 100 - (avg_cloud - 10) * 1.33
-
-    elif avg_cloud <= 40:
-        score = 80 - (avg_cloud - 25) * 1.33
-
-    elif avg_cloud <= 60:
-        score = 60 - (avg_cloud - 40) * 1.25
-
-    elif avg_cloud <= 80:
-        score = 35 - (avg_cloud - 60) * 1.25
-
-    else:
-        score = 10 - (avg_cloud - 80) * 0.5
-
-    return max(
-        0,
-        min(100, score)
-    )
 
 def moon_observation_penalty(brightness, altitude):
 
@@ -2137,21 +2062,20 @@ def build_night_dataframe(weather):
         weather["daily"]["sunrise"][1]
     )
 
+    # 새벽에는 오늘 저녁부터 시작하는
+    # 다가오는 밤을 기준으로 계산
     if now < sunrise_today:
 
-        start_time = now.replace(
-            minute=0,
-            second=0,
-            microsecond=0
-        )
+        start_time = sunset_today
+        end_time = sunrise_tomorrow
 
-        end_time = sunrise_today
-
+    # 낮에도 오늘 저녁부터 다음날 아침까지
     elif now < sunset_today:
 
         start_time = sunset_today
         end_time = sunrise_tomorrow
 
+    # 이미 밤이 시작됐으면 현재 시각부터 계산
     else:
 
         start_time = now.replace(
@@ -2181,6 +2105,57 @@ def build_night_dataframe(weather):
         start_time,
         end_time
     )
+
+def build_day_weather_dataframe(weather):
+
+    hourly = weather["hourly"]
+
+    df = pd.DataFrame(
+        {
+            "시간": pd.to_datetime(hourly["time"]),
+            "기온": hourly["temperature_2m"],
+            "습도": hourly["relative_humidity_2m"],
+
+            "구름량": hourly["cloud_cover"],
+            "전체구름": hourly["cloud_cover"],
+            "하층구름": hourly["cloud_cover_low"],
+            "중층구름": hourly["cloud_cover_mid"],
+            "상층구름": hourly["cloud_cover_high"],
+
+            "강수확률": hourly["precipitation_probability"],
+            "강수량": hourly["precipitation"],
+            "풍속": hourly["wind_speed_10m"],
+            "시정": hourly["visibility"],
+        }
+    )
+
+    today_start = (
+        datetime.now(KST)
+        .replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+        .replace(tzinfo=None)
+    )
+
+    tomorrow_start = (
+        today_start
+        + timedelta(days=1)
+    )
+
+    day_df = df[
+        (df["시간"] >= today_start)
+        & (df["시간"] <= tomorrow_start)
+    ].copy()
+
+    day_df["관측점수"] = day_df.apply(
+        hourly_weather_score,
+        axis=1
+    )
+
+    return day_df.reset_index(drop=True)
 
 def find_best_observation_window(df):
     if len(df) == 0:
@@ -2728,7 +2703,13 @@ a.anchor-link {
     # 오늘 밤 관측 조건
     # --------------------------------------
 
-    night_df, night_start, night_end = build_night_dataframe(weather)
+    night_df, night_start, night_end = build_night_dataframe(
+        weather
+    )
+
+    day_weather_df = build_day_weather_dataframe(
+        weather
+    )
 
     st.divider()
     st.header("🔭 오늘 밤 관측 조건")
@@ -2736,7 +2717,7 @@ a.anchor-link {
     if len(night_df) > 0:
 
         # ======================================
-        # 7일 예보의 오늘 날짜 점수를 그대로 사용
+        # 7일 예보의 오늘 점수를 그대로 사용
         # ======================================
 
         today_string = datetime.now(
@@ -2766,7 +2747,7 @@ a.anchor-link {
             night_grade = "⚪ 계산 불가"
 
         # ======================================
-        # 오늘 밤 최적 관측 시간 계산
+        # 오늘 밤 추천 시간
         # ======================================
 
         best_window = find_best_observation_window(
@@ -2779,14 +2760,24 @@ a.anchor-link {
                 best_window
             )
 
-            recommended_time = (
-                f"{best_start.strftime('%m/%d %H:%M')}"
-                f" ~ "
-                f"{best_end.strftime('%m/%d %H:%M')}"
-            )
+            if best_start.date() == best_end.date():
+
+                recommended_time = (
+                    f"{best_start.strftime('%m/%d %H:%M')}"
+                    f" ~ "
+                    f"{best_end.strftime('%H:%M')}"
+                )
+
+            else:
+
+                recommended_time = (
+                    f"{best_start.strftime('%m/%d %H:%M')}"
+                    f" ~ "
+                    f"{best_end.strftime('%m/%d %H:%M')}"
+                )
 
             recommendation_text = (
-                f"🔭 {recommended_time}"
+                f"🔭 추천 시간: {recommended_time}"
                 f" · 예상 {best_score}점"
             )
 
@@ -2795,6 +2786,10 @@ a.anchor-link {
             recommendation_text = (
                 "🔭 추천 시간 계산 불가"
             )
+
+        # ======================================
+        # 오늘 밤 요약 카드 스타일
+        # ======================================
 
         st.markdown(
             """
@@ -2876,6 +2871,9 @@ a.anchor-link {
             unsafe_allow_html=True
         )
 
+        # ======================================
+        # 오늘 밤 요약 카드
+        # ======================================
 
         night_summary_html = (
             '<div class="night-summary-grid">'
@@ -2884,14 +2882,18 @@ a.anchor-link {
             '<div class="night-summary-label">'
             '⭐ 관측 점수'
             '</div>'
-            f'<div class="night-summary-value">{average_score}점</div>'
+            f'<div class="night-summary-value">'
+            f'{average_score}점'
+            f'</div>'
             '</div>'
 
             '<div class="night-summary-card">'
             '<div class="night-summary-label">'
             '🌌 관측 등급'
             '</div>'
-            f'<div class="night-summary-grade">{night_grade}</div>'
+            f'<div class="night-summary-grade">'
+            f'{night_grade}'
+            f'</div>'
             '</div>'
 
             '</div>'
@@ -2906,10 +2908,13 @@ a.anchor-link {
             unsafe_allow_html=True
         )
 
+        # ======================================
+        # 시간별 상세 정보
+        # ======================================
 
         with st.expander("📊 시간별 상세 정보"):
 
-            table_df = night_df.copy()
+            table_df = day_weather_df.copy()
 
             table_df["시간"] = (
                 table_df["시간"]
@@ -2955,13 +2960,9 @@ a.anchor-link {
 
     else:
 
-        average_score = 70
-
         st.warning(
             "오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다."
         )
-
-
     # --------------------------------------
     # 천문 계산 엔진
     # --------------------------------------
