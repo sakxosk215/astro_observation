@@ -1555,19 +1555,39 @@ def cloud_cell_style(value):
     value = float(value)
 
     if value < 20:
-        return "background-color: #080b4f; color: white;"
+        return (
+            "background-color: transparent; "
+            "color: #8b93ff; "
+            "font-weight: 600;"
+        )
 
     elif value < 40:
-        return "background-color: #1c205f; color: white;"
+        return (
+            "background-color: transparent; "
+            "color: #a5a9ff; "
+            "font-weight: 600;"
+        )
 
     elif value < 60:
-        return "background-color: #4d4f70; color: white;"
+        return (
+            "background-color: transparent; "
+            "color: #c2c4e8; "
+            "font-weight: 600;"
+        )
 
     elif value < 80:
-        return "background-color: #8a8b91; color: white;"
+        return (
+            "background-color: transparent; "
+            "color: #dddddd; "
+            "font-weight: 700;"
+        )
 
     else:
-        return "background-color: #c8c8b5; color: black;"
+        return (
+            "background-color: transparent; "
+            "color: #ffffff; "
+            "font-weight: 800;"
+        )
 
 def style_cloud_dataframe(df):
     cloud_columns = [
