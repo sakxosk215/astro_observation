@@ -1552,42 +1552,30 @@ def cloud_cell_style(value):
     if pd.isna(value):
         return ""
 
-    value = float(value)
+    value = max(
+        0,
+        min(100, float(value))
+    )
 
-    if value < 20:
-        return (
-            "background-color: transparent; "
-            "color: #8b93ff; "
-            "font-weight: 600;"
-        )
+    # 0% = 검정
+    # 100% = 흰색
+    gray = round(
+        255 * (value / 100)
+    )
 
-    elif value < 40:
-        return (
-            "background-color: transparent; "
-            "color: #a5a9ff; "
-            "font-weight: 600;"
-        )
-
-    elif value < 60:
-        return (
-            "background-color: transparent; "
-            "color: #c2c4e8; "
-            "font-weight: 600;"
-        )
-
-    elif value < 80:
-        return (
-            "background-color: transparent; "
-            "color: #dddddd; "
-            "font-weight: 700;"
-        )
-
+    # 밝은 배경에서는 검정 글씨
+    # 어두운 배경에서는 흰 글씨
+    if value >= 65:
+        text_color = "black"
     else:
-        return (
-            "background-color: transparent; "
-            "color: #ffffff; "
-            "font-weight: 800;"
-        )
+        text_color = "white"
+
+    return (
+        f"background-color: "
+        f"rgb({gray}, {gray}, {gray}); "
+        f"color: {text_color}; "
+        "font-weight: 600;"
+    )
 
 def style_cloud_dataframe(df):
     cloud_columns = [
