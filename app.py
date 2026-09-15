@@ -2366,12 +2366,171 @@ a.anchor-link {
         .apply(weather_score_grade)
     )
 
-    # ======================================
+        # ======================================
     # 7일 관측 요약 카드
     # ======================================
 
     st.subheader("🔭 7일 관측 요약")
 
+    card_df = weekly_df.head(7).reset_index(drop=True)
+
+    st.markdown(
+        """
+        <style>
+        .weekly-card-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 10px;
+            margin-bottom: 25px;
+        }
+
+        .weekly-card {
+            border: 1px solid rgba(128, 128, 128, 0.35);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .weekly-card-date {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        .weekly-card-grade {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .weekly-card-score {
+            font-size: 30px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .weekly-card-info {
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .card-blue {
+            border-left: 5px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .card-green {
+            border-left: 5px solid #22c55e;
+            background: rgba(34, 197, 94, 0.08);
+        }
+
+        .card-yellow {
+            border-left: 5px solid #eab308;
+            background: rgba(234, 179, 8, 0.08);
+        }
+
+        .card-orange {
+            border-left: 5px solid #f97316;
+            background: rgba(249, 115, 22, 0.08);
+        }
+
+        .card-red {
+            border-left: 5px solid #ef4444;
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        @media (max-width: 1100px) {
+            .weekly-card-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 650px) {
+            .weekly-card-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    card_html = '<div class="weekly-card-grid">'
+
+    weekday_names = [
+        "월",
+        "화",
+        "수",
+        "목",
+        "금",
+        "토",
+        "일"
+    ]
+
+    for _, row in card_df.iterrows():
+
+        card_date = pd.to_datetime(
+            row["날짜"]
+        )
+
+        weekday_name = weekday_names[
+            card_date.weekday()
+        ]
+
+        score = int(
+            row["관측 점수"]
+        )
+
+        if score >= 90:
+            status_class = "card-blue"
+
+        elif score >= 80:
+            status_class = "card-green"
+
+        elif score >= 65:
+            status_class = "card-yellow"
+
+        elif score >= 45:
+            status_class = "card-orange"
+
+        else:
+            status_class = "card-red"
+
+        card_html += (
+            f'<div class="weekly-card {status_class}">'
+            f'<div class="weekly-card-date">'
+            f'📅 {row["날짜"]}({weekday_name})'
+            f'</div>'
+            f'<div class="weekly-card-grade">'
+            f'{row["등급"]}'
+            f'</div>'
+            f'<div class="weekly-card-score">'
+            f'{score}점'
+            f'</div>'
+            '<div class="weekly-card-info">'
+            f'<b>달 영향</b> : {row["달 영향"]}<br>'
+            f'<b>어두운 시간</b> : '
+            f'{row["천문박명 종료"]} ~ '
+            f'{row["천문박명 시작"]}<br>'
+            f'<b>최적 시간</b> : '
+            f'{row["최적 시간"]}<br>'
+            f'<b>평균 구름</b> : '
+            f'{row["평균 구름 %"]:.0f}%'
+            '</div>'
+            '</div>'
+        )
+
+    card_html += '</div>'
+
+    st.markdown(
+        card_html,
+        unsafe_allow_html=True
+    )
+
+    # ======================================
+    # 7일 상세 예보 표
+    # ======================================
     # ======================================
     # 7일 상세 예보 표
     # ======================================
@@ -2575,9 +2734,32 @@ a.anchor-link {
             average_score = 0
             night_grade = "⚪ 계산 불가"
 
-        best_window = find_best_observation_window(
+            best_window = find_best_observation_window(
             night_df
         )
+
+        if best_window:
+
+            best_start, best_end, best_score = (
+                best_window
+            )
+
+            recommended_time = (
+                f"{best_start.strftime('%m/%d %H:%M')}"
+                f" ~ "
+                f"{best_end.strftime('%m/%d %H:%M')}"
+            )
+
+            recommendation_text = (
+                f"🔭 {recommended_time}"
+                f" · 예상 {best_score}점"
+            )
+
+        else:
+
+            recommendation_text = (
+                "🔭 추천 시간 계산 불가"
+            )
 
         st.markdown(
             """
@@ -2665,7 +2847,7 @@ a.anchor-link {
 
             '<div class="night-summary-card">'
             '<div class="night-summary-label">'
-            '⭐ 평균 관측 점수'
+            '⭐ 관측 점수'
             '</div>'
             f'<div class="night-summary-value">{average_score}점</div>'
             '</div>'
