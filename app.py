@@ -9,10 +9,13 @@ import streamlit as st
 import streamlit.components.v1 as components
 from utils.astronomy import AstronomyEngine
 
-
 KST = ZoneInfo("Asia/Seoul")
+
 BASE_DIR = Path(__file__).resolve().parent
+
 MESSIER_PATH = BASE_DIR / "data" / "messier.json"
+
+CONSTELLATION_PATH = BASE_DIR / "data" / "constellations.json"
 
 
 st.set_page_config(
@@ -205,7 +208,7 @@ components.html(
     );
     </script>
     """,
-    height=0
+    height=0,
 )
 
 components.html(
@@ -957,7 +960,7 @@ components.html(
 
     </script>
     """,
-    height=0
+    height=0,
 )
 
 # ==========================================
@@ -1061,7 +1064,7 @@ st.markdown(
 
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 
@@ -1073,14 +1076,13 @@ st.divider()
 # 장소 이름 → 위도 / 경도 검색
 # ==========================================
 
+
 @st.cache_data(ttl=3600)
 def search_location(search_text):
 
     url = "https://nominatim.openstreetmap.org/search"
 
-    headers = {
-        "User-Agent": "AstroObservationClubApp/1.0"
-    }
+    headers = {"User-Agent": "AstroObservationClubApp/1.0"}
 
     search_text = search_text.strip()
 
@@ -1088,16 +1090,10 @@ def search_location(search_text):
         search_text,
         f"{search_text}시",
         f"{search_text}군",
-        f"{search_text}읍"
+        f"{search_text}읍",
     ]
 
-    allowed_types = {
-        "city",
-        "county",
-        "town",
-        "village",
-        "municipality"
-    }
+    allowed_types = {"city", "county", "town", "village", "municipality"}
 
     final_results = []
     seen = set()
@@ -1110,15 +1106,10 @@ def search_location(search_text):
             "countrycodes": "kr",
             "limit": 10,
             "addressdetails": 1,
-            "accept-language": "ko"
+            "accept-language": "ko",
         }
 
-        response = requests.get(
-            url,
-            params=params,
-            headers=headers,
-            timeout=10
-        )
+        response = requests.get(url, params=params, headers=headers, timeout=10)
 
         response.raise_for_status()
 
@@ -1126,10 +1117,7 @@ def search_location(search_text):
 
         for result in results:
 
-            address_type = result.get(
-                "addresstype",
-                ""
-            )
+            address_type = result.get("addresstype", "")
 
             if address_type not in allowed_types:
                 continue
@@ -1137,17 +1125,15 @@ def search_location(search_text):
             lat = result.get("lat")
             lon = result.get("lon")
 
-            key = (
-                result.get("display_name", ""),
-                lat,
-                lon
-            )
+            key = (result.get("display_name", ""), lat, lon)
 
             if key not in seen:
                 seen.add(key)
                 final_results.append(result)
 
     return final_results
+
+
 # ==========================================
 # 관측지 설정
 # ==========================================
@@ -1177,19 +1163,11 @@ if "location_results" not in st.session_state:
 # Enter 키로도 검색 가능
 # ==========================================
 
-with st.sidebar.form(
-    "location_search_form"
-):
+with st.sidebar.form("location_search_form"):
 
-    search_text = st.text_input(
-        "🔎 장소 검색",
-        placeholder="예: 용인, 안동, 소백산"
-    )
+    search_text = st.text_input("🔎 장소 검색", placeholder="예: 용인, 안동, 소백산")
 
-    search_pressed = st.form_submit_button(
-        "검색",
-        use_container_width=True
-    )
+    search_pressed = st.form_submit_button("검색", use_container_width=True)
 
 
 # Enter 또는 검색 버튼
@@ -1199,32 +1177,21 @@ if search_pressed:
 
         try:
 
-            results = search_location(
-                search_text.strip()
-            )
+            results = search_location(search_text.strip())
 
             if len(results) == 0:
 
-                st.sidebar.warning(
-                    "검색 결과가 없습니다."
-                )
+                st.sidebar.warning("검색 결과가 없습니다.")
 
             else:
 
                 selected = results[0]
 
-                address = selected.get(
-                    "address",
-                    {}
-                )
+                address = selected.get("address", {})
 
-                selected_lat = float(
-                    selected["lat"]
-                )
+                selected_lat = float(selected["lat"])
 
-                selected_lon = float(
-                    selected["lon"]
-                )
+                selected_lon = float(selected["lon"])
 
                 selected_name = (
                     selected.get("name")
@@ -1234,66 +1201,43 @@ if search_pressed:
                     or "선택한 위치"
                 )
 
-                st.session_state[
-                    "applied_latitude"
-                ] = selected_lat
+                st.session_state["applied_latitude"] = selected_lat
 
-                st.session_state[
-                    "applied_longitude"
-                ] = selected_lon
+                st.session_state["applied_longitude"] = selected_lon
 
-                st.session_state[
-                    "applied_location_name"
-                ] = selected_name
+                st.session_state["applied_location_name"] = selected_name
 
-                st.session_state[
-                    "location_results"
-                ] = []
+                st.session_state["location_results"] = []
 
                 st.rerun()
 
         except Exception as e:
 
-            st.sidebar.error(
-                "장소 검색 중 오류가 발생했습니다."
-            )
+            st.sidebar.error("장소 검색 중 오류가 발생했습니다.")
 
-            st.sidebar.code(
-                str(e)
-            )
+            st.sidebar.code(str(e))
 
     else:
 
-        st.sidebar.warning(
-            "검색할 장소를 입력해주세요."
-        )
+        st.sidebar.warning("검색할 장소를 입력해주세요.")
 
 
 # ==========================================
 # 검색 결과
 # ==========================================
 
-results = st.session_state[
-    "location_results"
-]
+results = st.session_state["location_results"]
 
 
 if len(results) > 0:
 
     result_labels = []
 
-
     for result in results:
 
-        address = result.get(
-            "address",
-            {}
-        )
+        address = result.get("address", {})
 
-        name = result.get(
-            "name",
-            ""
-        )
+        name = result.get("name", "")
 
         city = (
             address.get("city")
@@ -1303,85 +1247,42 @@ if len(results) > 0:
             or ""
         )
 
-        province = (
-            address.get("state")
-            or address.get("province")
-            or ""
-        )
+        province = address.get("state") or address.get("province") or ""
 
-        lat = float(
-            result["lat"]
-        )
+        lat = float(result["lat"])
 
-        lon = float(
-            result["lon"]
-        )
-
+        lon = float(result["lon"])
 
         # 중복 이름 제거
         parts = []
 
-        for part in [
-            name,
-            city,
-            province
-        ]:
+        for part in [name, city, province]:
 
-            if (
-                part
-                and part not in parts
-            ):
+            if part and part not in parts:
                 parts.append(part)
 
-
-        short_name = " / ".join(
-            parts
-        )
-
+        short_name = " / ".join(parts)
 
         # 검색 결과를 너무 길지 않게 표시
-        label = (
-            f"{short_name} "
-            f"({lat:.4f}, {lon:.4f})"
-        )
+        label = f"{short_name} " f"({lat:.4f}, {lon:.4f})"
 
-        result_labels.append(
-            label
-        )
-
+        result_labels.append(label)
 
     selected_index = st.sidebar.selectbox(
         "검색 결과",
-        options=range(
-            len(result_labels)
-        ),
-        format_func=lambda i: result_labels[i]
+        options=range(len(result_labels)),
+        format_func=lambda i: result_labels[i],
     )
 
+    if st.sidebar.button("📍 이 위치 사용", use_container_width=True):
 
-    if st.sidebar.button(
-        "📍 이 위치 사용",
-        use_container_width=True
-    ):
+        selected = results[selected_index]
 
-        selected = results[
-            selected_index
-        ]
+        address = selected.get("address", {})
 
-        address = selected.get(
-            "address",
-            {}
-        )
+        selected_lat = float(selected["lat"])
 
-
-        selected_lat = float(
-            selected["lat"]
-        )
-
-        selected_lon = float(
-            selected["lon"]
-        )
-
+        selected_lon = float(selected["lon"])
 
         selected_name = (
             selected.get("name")
@@ -1391,26 +1292,15 @@ if len(results) > 0:
             or "선택한 위치"
         )
 
-
         # 실제 앱에서 사용할 위치 변경
-        st.session_state[
-            "applied_latitude"
-        ] = selected_lat
+        st.session_state["applied_latitude"] = selected_lat
 
-        st.session_state[
-            "applied_longitude"
-        ] = selected_lon
+        st.session_state["applied_longitude"] = selected_lon
 
-        st.session_state[
-            "applied_location_name"
-        ] = selected_name
-
+        st.session_state["applied_location_name"] = selected_name
 
         # 검색 결과 닫기
-        st.session_state[
-            "location_results"
-        ] = []
-
+        st.session_state["location_results"] = []
 
         st.rerun()
 
@@ -1419,23 +1309,11 @@ if len(results) > 0:
 # 실제 앱에서 사용할 현재 위치
 # ==========================================
 
-latitude = float(
-    st.session_state[
-        "applied_latitude"
-    ]
-)
+latitude = float(st.session_state["applied_latitude"])
 
-longitude = float(
-    st.session_state[
-        "applied_longitude"
-    ]
-)
+longitude = float(st.session_state["applied_longitude"])
 
-location_name = (
-    st.session_state[
-        "applied_location_name"
-    ]
-)
+location_name = st.session_state["applied_location_name"]
 
 
 # ==========================================
@@ -1444,27 +1322,19 @@ location_name = (
 
 st.sidebar.divider()
 
-st.sidebar.subheader(
-    "📌 현재 적용된 관측지"
-)
+st.sidebar.subheader("📌 현재 적용된 관측지")
 
-st.sidebar.success(
-    location_name
-)
+st.sidebar.success(location_name)
 
-st.sidebar.write(
-    f"위도: **{latitude:.4f}°**"
-)
+st.sidebar.write(f"위도: **{latitude:.4f}°**")
 
-st.sidebar.write(
-    f"경도: **{longitude:.4f}°**"
-)
-
+st.sidebar.write(f"경도: **{longitude:.4f}°**")
 
 
 # ==========================================
 # 날씨 API
 # ==========================================
+
 
 @st.cache_data(ttl=600)
 def get_weather(latitude, longitude):
@@ -1476,7 +1346,6 @@ def get_weather(latitude, longitude):
         "longitude": longitude,
         "timezone": "Asia/Seoul",
         "forecast_days": 8,
-
         "current": (
             "temperature_2m,"
             "relative_humidity_2m,"
@@ -1485,7 +1354,6 @@ def get_weather(latitude, longitude):
             "wind_speed_10m,"
             "visibility"
         ),
-
         "hourly": (
             "temperature_2m,"
             "relative_humidity_2m,"
@@ -1498,26 +1366,20 @@ def get_weather(latitude, longitude):
             "wind_speed_10m,"
             "visibility"
         ),
-
         "daily": (
             "sunrise,"
             "sunset,"
             "temperature_2m_max,"
             "temperature_2m_min,"
             "precipitation_probability_max"
-        )
+        ),
     }
 
-    response = requests.get(
-        url,
-        params=params,
-        timeout=10
-    )
+    response = requests.get(url, params=params, timeout=10)
 
     response.raise_for_status()
 
     return response.json()
-
 
 
 @st.cache_data
@@ -1526,9 +1388,20 @@ def load_messier_catalog():
         return json.load(f)
 
 
+@st.cache_data
+def load_constellation_catalog():
+    with open(
+        CONSTELLATION_PATH,
+        "r",
+        encoding="utf-8",
+    ) as f:
+        return json.load(f)
+
+
 # ==========================================
 # 관측 날씨 점수
 # ==========================================
+
 
 def weather_score_grade(score):
 
@@ -1547,21 +1420,17 @@ def weather_score_grade(score):
     else:
         return "🔴 관측 비추천"
 
+
 def cloud_cell_style(value):
 
     if pd.isna(value):
         return ""
 
-    value = max(
-        0,
-        min(100, float(value))
-    )
+    value = max(0, min(100, float(value)))
 
-    # 0% = 검정
+        # 0% = 검정
     # 100% = 흰색
-    gray = round(
-        255 * (value / 100)
-    )
+    gray = round(255 * (value / 100))
 
     # 밝은 배경에서는 검정 글씨
     # 어두운 배경에서는 흰 글씨
@@ -1576,67 +1445,6 @@ def cloud_cell_style(value):
         f"color: {text_color}; "
         "font-weight: 600;"
     )
-
-def style_cloud_dataframe(df):
-    cloud_columns = [
-        "구름량",
-        "전체구름",
-        "하층구름",
-        "중층구름",
-        "상층구름",
-        "유효구름량",
-
-        "평균 구름 %",
-        "전체 구름 %",
-        "하층 구름 %",
-        "중층 구름 %",
-        "상층 구름 %",
-
-        "구름 40% 이상 비율 %",
-        "구름 70% 이상 비율 %",
-
-        "Best Match 평균 구름 %",
-        "ECMWF 평균 구름 %",
-        "GFS 평균 구름 %",
-        "3모델 평균 구름 %"
-    ]
-
-    existing_cloud_columns = [
-        col for col in cloud_columns
-        if col in df.columns
-    ]
-
-    if not existing_cloud_columns:
-        return df
-
-    cloud_cmap = LinearSegmentedColormap.from_list(
-        "cloud_map",
-        [
-            "#020633",  # 매우 낮음
-            "#1b2370",
-            "#4d538f",
-            "#8d90a4",
-            "#d7d2b8"   # 매우 높음
-        ]
-    )
-
-    format_dict = {
-        col: "{:.0f}"
-        for col in existing_cloud_columns
-    }
-
-    styled_df = (
-        df.style
-        .background_gradient(
-            subset=existing_cloud_columns,
-            cmap=cloud_cmap,
-            vmin=0,
-            vmax=100
-        )
-        .format(format_dict, na_rep="-")
-    )
-
-    return styled_df
 
 def moon_observation_penalty(brightness, altitude):
 
@@ -1663,7 +1471,6 @@ def moon_observation_penalty(brightness, altitude):
     else:
         base_penalty = 20
 
-
     # 달 고도에 따른 영향
     if altitude < 15:
         altitude_factor = 0.4
@@ -1674,11 +1481,7 @@ def moon_observation_penalty(brightness, altitude):
     else:
         altitude_factor = 1.0
 
-
-    penalty = (
-        base_penalty
-        * altitude_factor
-    )
+    penalty = base_penalty * altitude_factor
 
     return round(penalty, 1)
 
@@ -1700,14 +1503,10 @@ def moon_penalty_label(penalty):
     else:
         return "🔴 매우 높음"
 
+
 def cloud_observation_score(total, low, mid, high):
 
-    effective_cloud = max(
-        total,
-        low,
-        mid * 0.95,
-        high * 0.85
-    )
+    effective_cloud = max(total, low, mid * 0.95, high * 0.85)
 
     if effective_cloud <= 10:
         score = 100
@@ -1733,39 +1532,24 @@ def cloud_observation_score(total, low, mid, high):
 def hourly_weather_score(row):
 
     cloud_score = cloud_observation_score(
-        row["전체구름"],
-        row["하층구름"],
-        row["중층구름"],
-        row["상층구름"]
+        row["전체구름"], row["하층구름"], row["중층구름"], row["상층구름"]
     )
 
-    rain_score = max(
-        0,
-        100 - row["강수확률"] * 1.4
-    )
+    rain_score = max(0, 100 - row["강수확률"] * 1.4)
 
     visibility_km = row["시정"] / 1000
 
-    visibility_score = min(
-        100,
-        (visibility_km / 20) * 100
-    )
+    visibility_score = min(100, (visibility_km / 20) * 100)
 
     if row["풍속"] <= 10:
         wind_score = 100
     else:
-        wind_score = max(
-            0,
-            100 - (row["풍속"] - 10) * 4
-        )
+        wind_score = max(0, 100 - (row["풍속"] - 10) * 4)
 
     if row["습도"] <= 70:
         humidity_score = 100
     else:
-        humidity_score = max(
-            0,
-            100 - (row["습도"] - 70) * 3.3
-        )
+        humidity_score = max(0, 100 - (row["습도"] - 70) * 3.3)
 
     score = (
         cloud_score * 0.58
@@ -1779,10 +1563,7 @@ def hourly_weather_score(row):
         score = min(score, 35)
 
     effective_cloud = max(
-        row["전체구름"],
-        row["하층구름"],
-        row["중층구름"] * 0.95,
-        row["상층구름"] * 0.85
+        row["전체구름"], row["하층구름"], row["중층구름"] * 0.95, row["상층구름"] * 0.85
     )
 
     if effective_cloud >= 80:
@@ -1791,9 +1572,8 @@ def hourly_weather_score(row):
     elif effective_cloud >= 60:
         score = min(score, 50)
 
-    return round(
-        max(0, min(100, score))
-    )
+    return round(max(0, min(100, score)))
+
 
 def build_weekly_forecast(weather, engine):
 
@@ -1801,18 +1581,20 @@ def build_weekly_forecast(weather, engine):
     hourly = weather["hourly"]
 
     # 시간별 날씨 DataFrame
-    hourly_df = pd.DataFrame({
-    "시간": pd.to_datetime(hourly["time"]),
-    "전체구름": hourly["cloud_cover"],
-    "하층구름": hourly["cloud_cover_low"],
-    "중층구름": hourly["cloud_cover_mid"],
-    "상층구름": hourly["cloud_cover_high"],
-    "강수확률": hourly["precipitation_probability"],
-    "강수량": hourly["precipitation"],
-    "시정": hourly["visibility"],
-    "풍속": hourly["wind_speed_10m"],
-    "습도": hourly["relative_humidity_2m"]
-})
+    hourly_df = pd.DataFrame(
+        {
+            "시간": pd.to_datetime(hourly["time"]),
+            "전체구름": hourly["cloud_cover"],
+            "하층구름": hourly["cloud_cover_low"],
+            "중층구름": hourly["cloud_cover_mid"],
+            "상층구름": hourly["cloud_cover_high"],
+            "강수확률": hourly["precipitation_probability"],
+            "강수량": hourly["precipitation"],
+            "시정": hourly["visibility"],
+            "풍속": hourly["wind_speed_10m"],
+            "습도": hourly["relative_humidity_2m"],
+        }
+    )
 
     rows = []
 
@@ -1821,7 +1603,7 @@ def build_weekly_forecast(weather, engine):
 
         date = daily["time"][i]
 
-                # ==================================
+        # ==================================
         # 정확한 천문학적 밤 계산
         #
         # 저녁 천문박명 종료
@@ -1829,53 +1611,30 @@ def build_weekly_forecast(weather, engine):
         # 다음날 아침 천문박명 시작
         # ==================================
 
-        astro_start, astro_end = (
-            engine.get_astronomical_night(
-                date
-            )
-        )
+        astro_start, astro_end = engine.get_astronomical_night(date)
 
-        if (
-            astro_start is None
-            or astro_end is None
-        ):
+        if astro_start is None or astro_end is None:
             continue
 
         # ==================================
         # 해당 밤의 중간 시각 달 상태
         # ==================================
 
-        
         # Open-Meteo 시간 데이터는
         # timezone 정보가 없는 KST 시간이므로
         # 비교를 위해 timezone 제거
-        astro_start_naive = (
-            astro_start.replace(
-                tzinfo=None
-            )
-        )
+        astro_start_naive = astro_start.replace(tzinfo=None)
 
-        astro_end_naive = (
-            astro_end.replace(
-                tzinfo=None
-            )
-        )
+        astro_end_naive = astro_end.replace(tzinfo=None)
 
         night = hourly_df[
-            (
-                hourly_df["시간"]
-                >= astro_start_naive
-            )
-            &
-            (
-                hourly_df["시간"]
-                <= astro_end_naive
-            )
+            (hourly_df["시간"] >= astro_start_naive)
+            & (hourly_df["시간"] <= astro_end_naive)
         ].copy()
 
         if len(night) == 0:
             continue
-              # ==================================
+            # ==================================
         # 유효 구름량
         # ==================================
 
@@ -1884,21 +1643,16 @@ def build_weekly_forecast(weather, engine):
                 row["전체구름"],
                 row["하층구름"],
                 row["중층구름"] * 0.95,
-                row["상층구름"] * 0.85
+                row["상층구름"] * 0.85,
             ),
-            axis=1
+            axis=1,
         )
-
 
         # ==================================
         # 시간별 관측 점수
         # ==================================
 
-        night["시간점수"] = night.apply(
-            hourly_weather_score,
-            axis=1
-        )
-
+        night["시간점수"] = night.apply(hourly_weather_score, axis=1)
 
         # ==================================
         # 밤 전체 점수용 통계
@@ -1906,44 +1660,27 @@ def build_weekly_forecast(weather, engine):
 
         average_score = night["시간점수"].mean()
 
-        lower_score = (
-            night["시간점수"]
-            .quantile(0.25)
-        )
+        lower_score = night["시간점수"].quantile(0.25)
 
         best_score = night["시간점수"].max()
 
-
         # 구름 40% 이상인 시간 비율
-        cloudy_ratio = (
-            night["유효구름량"] >= 40
-        ).mean()
-
+        cloudy_ratio = (night["유효구름량"] >= 40).mean()
 
         # 구름 70% 이상인 시간 비율
-        very_cloudy_ratio = (
-            night["유효구름량"] >= 70
-        ).mean()
-
+        very_cloudy_ratio = (night["유효구름량"] >= 70).mean()
 
         # 강수확률 30% 이상인 시간 비율
-        rainy_ratio = (
-            night["강수확률"] >= 30
-        ).mean()
+        rainy_ratio = (night["강수확률"] >= 30).mean()
         # ==================================
         # 최종 밤 점수
         # ==================================
 
-        score = (
-            average_score * 0.65
-            + lower_score * 0.25
-            + best_score * 0.10
-        )
+        score = average_score * 0.65 + lower_score * 0.25 + best_score * 0.10
 
         score -= cloudy_ratio * 15
         score -= very_cloudy_ratio * 20
         score -= rainy_ratio * 10
-
 
         # 밤 절반 이상이 흐리면
         # 높은 등급이 나오지 못하게 제한
@@ -1956,50 +1693,30 @@ def build_weekly_forecast(weather, engine):
         if rainy_ratio >= 0.30:
             score = min(score, 59)
 
+        score = round(max(0, min(100, score)))
 
-        score = round(
-            max(0, min(100, score))
-        )
-
-        grade = weather_score_grade(
-            score
-        )
+        grade = weather_score_grade(score)
         score = round(score)
 
-        grade = weather_score_grade(
-            score
-        )
+        grade = weather_score_grade(score)
 
         # --------------------------
         # 그날 밤 가장 좋은 시간
         # --------------------------
 
-        night["시간점수"] = night.apply(
-            hourly_weather_score,
-            axis=1
-        )
+        night["시간점수"] = night.apply(hourly_weather_score, axis=1)
 
-        best_index = (
-            night["시간점수"].idxmax()
-        )
+        best_index = night["시간점수"].idxmax()
 
-        best_time = night.loc[
-            best_index,
-            "시간"
-        ]
+        best_time = night.loc[best_index, "시간"]
 
-        best_hour_score = night.loc[
-            best_index,
-            "시간점수"
-        ]
+        best_hour_score = night.loc[best_index, "시간점수"]
 
         # ==================================
         # 실제 최적 관측 시간의 달 상태
         # ==================================
 
-        moon_info = engine.get_moon_at_time(
-            best_time
-        )
+        moon_info = engine.get_moon_at_time(best_time)
 
         moon_brightness = moon_info["밝기"]
         moon_altitude = moon_info["고도"]
@@ -2013,9 +1730,7 @@ def build_weekly_forecast(weather, engine):
         # 실제 최적 관측 시간의 달 상태
         # ==================================
 
-        moon_info = engine.get_moon_at_time(
-            best_time
-        )
+        moon_info = engine.get_moon_at_time(best_time)
 
         moon_brightness = moon_info["밝기"]
         moon_altitude = moon_info["고도"]
@@ -2034,84 +1749,48 @@ def build_weekly_forecast(weather, engine):
         avg_mid_cloud = night["중층구름"].mean()
         avg_high_cloud = night["상층구름"].mean()
 
-        avg_effective_cloud = (
-            night["유효구름량"].mean()
-        )
+        avg_effective_cloud = night["유효구름량"].mean()
 
         avg_rain = night["강수확률"].mean()
         avg_humidity = night["습도"].mean()
 
-        avg_visibility = (
-            night["시정"].mean() / 1000
-        )
+        avg_visibility = night["시정"].mean() / 1000
 
         avg_wind = night["풍속"].mean()
 
-        rows.append({
-             
-            "날짜":
-                date,
-
-            "천문박명 종료":
-                astro_start.strftime("%H:%M"),
-
-            "천문박명 시작":
-                astro_end.strftime("%H:%M"),
-
-            "관측 점수":
-                score,
-
-            "등급":
-                grade,
-            "달 밝기 %": moon_brightness,
-            "달 고도 °": moon_altitude,
-            "달 상태": moon_status,
-            "최적 시간":
-                best_time.strftime("%H:%M"),
-
-            "최고 예상점수":
-                round(best_hour_score),
-
-            "평균 구름 %":
-                round(avg_effective_cloud),
-
-            "전체 구름 %":
-                round(avg_total_cloud),
-
-            "하층 구름 %":
-                round(avg_low_cloud),
-
-            "중층 구름 %":
-                round(avg_mid_cloud),
-
-            "상층 구름 %":
-                round(avg_high_cloud),
-
-            "흐린 시간 비율 %":
-                round(cloudy_ratio * 100),
-
-            "매우 흐린 시간 %":
-                round(very_cloudy_ratio * 100),
-
-            "평균 강수확률 %":
-                round(avg_rain),
-
-            "평균 습도 %":
-                round(avg_humidity),
-
-            "평균 시정 km":
-                round(avg_visibility, 1),
-
-            "평균 풍속 km/h":
-                round(avg_wind, 1)
-        })
-
+        rows.append(
+            {
+                "날짜": date,
+                "천문박명 종료": astro_start.strftime("%H:%M"),
+                "천문박명 시작": astro_end.strftime("%H:%M"),
+                "관측 점수": score,
+                "등급": grade,
+                "달 밝기 %": moon_brightness,
+                "달 고도 °": moon_altitude,
+                "달 상태": moon_status,
+                "최적 시간": best_time.strftime("%H:%M"),
+                "최고 예상점수": round(best_hour_score),
+                "평균 구름 %": round(avg_effective_cloud),
+                "전체 구름 %": round(avg_total_cloud),
+                "하층 구름 %": round(avg_low_cloud),
+                "중층 구름 %": round(avg_mid_cloud),
+                "상층 구름 %": round(avg_high_cloud),
+                "흐린 시간 비율 %": round(cloudy_ratio * 100),
+                "매우 흐린 시간 %": round(very_cloudy_ratio * 100),
+                "평균 강수확률 %": round(avg_rain),
+                "평균 습도 %": round(avg_humidity),
+                "평균 시정 km": round(avg_visibility, 1),
+                "평균 풍속 km/h": round(avg_wind, 1),
+            }
+        )
 
     return pd.DataFrame(rows)
+
 
 # ==========================================
 # 오늘 밤 시간대 구성
 # ==========================================
+
 
 def build_night_dataframe(weather):
     hourly = weather["hourly"]
@@ -2121,16 +1800,13 @@ def build_night_dataframe(weather):
             "시간": pd.to_datetime(hourly["time"]),
             "기온": hourly["temperature_2m"],
             "습도": hourly["relative_humidity_2m"],
-
             # 화면 표시용
             "구름량": hourly["cloud_cover"],
-
             # 7일 예보와 동일한 점수 계산용
             "전체구름": hourly["cloud_cover"],
             "하층구름": hourly["cloud_cover_low"],
             "중층구름": hourly["cloud_cover_mid"],
             "상층구름": hourly["cloud_cover_high"],
-
             "강수확률": hourly["precipitation_probability"],
             "강수량": hourly["precipitation"],
             "풍속": hourly["wind_speed_10m"],
@@ -2140,17 +1816,11 @@ def build_night_dataframe(weather):
 
     now = datetime.now(KST).replace(tzinfo=None)
 
-    sunrise_today = datetime.fromisoformat(
-        weather["daily"]["sunrise"][0]
-    )
+    sunrise_today = datetime.fromisoformat(weather["daily"]["sunrise"][0])
 
-    sunset_today = datetime.fromisoformat(
-        weather["daily"]["sunset"][0]
-    )
+    sunset_today = datetime.fromisoformat(weather["daily"]["sunset"][0])
 
-    sunrise_tomorrow = datetime.fromisoformat(
-        weather["daily"]["sunrise"][1]
-    )
+    sunrise_tomorrow = datetime.fromisoformat(weather["daily"]["sunrise"][1])
 
     # 새벽에는 오늘 저녁부터 시작하는
     # 다가오는 밤을 기준으로 계산
@@ -2168,33 +1838,20 @@ def build_night_dataframe(weather):
     # 이미 밤이 시작됐으면 현재 시각부터 계산
     else:
 
-        start_time = now.replace(
-            minute=0,
-            second=0,
-            microsecond=0
-        )
+        start_time = now.replace(minute=0, second=0, microsecond=0)
 
         end_time = sunrise_tomorrow
 
-    night_df = df[
-        (df["시간"] >= start_time)
-        & (df["시간"] <= end_time)
-    ].copy()
+    night_df = df[(df["시간"] >= start_time) & (df["시간"] <= end_time)].copy()
 
     # ======================================
     # 7일 예보와 같은 시간별 관측점수 계산
     # ======================================
 
-    night_df["관측점수"] = night_df.apply(
-        hourly_weather_score,
-        axis=1
-    )
+    night_df["관측점수"] = night_df.apply(hourly_weather_score, axis=1)
 
-    return (
-        night_df.reset_index(drop=True),
-        start_time,
-        end_time
-    )
+    return (night_df.reset_index(drop=True), start_time, end_time)
+
 
 def build_day_weather_dataframe(weather):
 
@@ -2205,13 +1862,11 @@ def build_day_weather_dataframe(weather):
             "시간": pd.to_datetime(hourly["time"]),
             "기온": hourly["temperature_2m"],
             "습도": hourly["relative_humidity_2m"],
-
             "구름량": hourly["cloud_cover"],
             "전체구름": hourly["cloud_cover"],
             "하층구름": hourly["cloud_cover_low"],
             "중층구름": hourly["cloud_cover_mid"],
             "상층구름": hourly["cloud_cover_high"],
-
             "강수확률": hourly["precipitation_probability"],
             "강수량": hourly["precipitation"],
             "풍속": hourly["wind_speed_10m"],
@@ -2221,31 +1876,18 @@ def build_day_weather_dataframe(weather):
 
     today_start = (
         datetime.now(KST)
-        .replace(
-            hour=0,
-            minute=0,
-            second=0,
-            microsecond=0
-        )
+        .replace(hour=0, minute=0, second=0, microsecond=0)
         .replace(tzinfo=None)
     )
 
-    tomorrow_start = (
-        today_start
-        + timedelta(days=1)
-    )
+    tomorrow_start = today_start + timedelta(days=1)
 
-    day_df = df[
-        (df["시간"] >= today_start)
-        & (df["시간"] <= tomorrow_start)
-    ].copy()
+    day_df = df[(df["시간"] >= today_start) & (df["시간"] <= tomorrow_start)].copy()
 
-    day_df["관측점수"] = day_df.apply(
-        hourly_weather_score,
-        axis=1
-    )
+    day_df["관측점수"] = day_df.apply(hourly_weather_score, axis=1)
 
     return day_df.reset_index(drop=True)
+
 
 def find_best_observation_window(df):
     if len(df) == 0:
@@ -2302,10 +1944,7 @@ try:
     weather = get_weather(latitude, longitude)
     current = weather["current"]
 
-    engine = AstronomyEngine(
-    latitude,
-    longitude
-)
+    engine = AstronomyEngine(latitude, longitude)
 
     st.subheader(f"📍 현재 관측지: {location_name}")
     st.subheader("🌦️ 현재 날씨")
@@ -2370,49 +2009,39 @@ a.anchor-link {
 
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     current_weather_html = (
         '<div class="current-weather-grid">'
-
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">🌡️ 기온</div>'
         f'<div class="weather-mini-value">{current["temperature_2m"]:.1f} °C</div>'
-        '</div>'
-
+        "</div>"
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">☁️ 구름량</div>'
         f'<div class="weather-mini-value">{current["cloud_cover"]:.0f}%</div>'
-        '</div>'
-
+        "</div>"
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">💧 습도</div>'
         f'<div class="weather-mini-value">{current["relative_humidity_2m"]:.0f}%</div>'
-        '</div>'
-
+        "</div>"
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">💨 풍속</div>'
         f'<div class="weather-mini-value">{current["wind_speed_10m"]:.1f} km/h</div>'
-        '</div>'
-
+        "</div>"
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">👁️ 시정</div>'
         f'<div class="weather-mini-value">{current["visibility"] / 1000:.1f} km</div>'
-        '</div>'
-
+        "</div>"
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">🌧️ 강수량</div>'
         f'<div class="weather-mini-value">{current["precipitation"]:.1f} mm</div>'
-        '</div>'
-
-        '</div>'
+        "</div>"
+        "</div>"
     )
 
-    st.markdown(
-        current_weather_html,
-        unsafe_allow_html=True
-    )
+    st.markdown(current_weather_html, unsafe_allow_html=True)
 
     # ======================================
     # 7일 관측 예보
@@ -2422,47 +2051,26 @@ a.anchor-link {
 
     st.header("📅 7일 관측 예보")
 
-    weekly_df = build_weekly_forecast(
-        weather,
-        engine
-    )
+    weekly_df = build_weekly_forecast(weather, engine)
 
     # ======================================
     # 달 밝기 / 고도에 따른 관측 감점
     # ======================================
 
     weekly_df["달 감점"] = weekly_df.apply(
-        lambda row: moon_observation_penalty(
-            row["달 밝기 %"],
-            row["달 고도 °"]
-        ),
-        axis=1
+        lambda row: moon_observation_penalty(row["달 밝기 %"], row["달 고도 °"]), axis=1
     )
 
-    weekly_df["달 영향"] = (
-        weekly_df["달 감점"]
-        .apply(moon_penalty_label)
-    )
+    weekly_df["달 영향"] = weekly_df["달 감점"].apply(moon_penalty_label)
 
     # Open-Meteo 날씨 점수에 달 영향만 적용
-    weekly_df["관측 점수"] = (
-        weekly_df["관측 점수"]
-        - weekly_df["달 감점"]
-    )
+    weekly_df["관측 점수"] = weekly_df["관측 점수"] - weekly_df["달 감점"]
 
-    weekly_df["관측 점수"] = (
-        weekly_df["관측 점수"]
-        .clip(0, 100)
-        .round()
-        .astype(int)
-    )
+    weekly_df["관측 점수"] = weekly_df["관측 점수"].clip(0, 100).round().astype(int)
 
-    weekly_df["등급"] = (
-        weekly_df["관측 점수"]
-        .apply(weather_score_grade)
-    )
+    weekly_df["등급"] = weekly_df["관측 점수"].apply(weather_score_grade)
 
-        # ======================================
+    # ======================================
     # 7일 관측 요약 카드
     # ======================================
 
@@ -2549,34 +2157,20 @@ a.anchor-link {
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     card_html = '<div class="weekly-card-grid">'
 
-    weekday_names = [
-        "월",
-        "화",
-        "수",
-        "목",
-        "금",
-        "토",
-        "일"
-    ]
+    weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
 
     for _, row in card_df.iterrows():
 
-        card_date = pd.to_datetime(
-            row["날짜"]
-        )
+        card_date = pd.to_datetime(row["날짜"])
 
-        weekday_name = weekday_names[
-            card_date.weekday()
-        ]
+        weekday_name = weekday_names[card_date.weekday()]
 
-        score = int(
-            row["관측 점수"]
-        )
+        score = int(row["관측 점수"])
 
         if score >= 90:
             status_class = "card-blue"
@@ -2597,34 +2191,31 @@ a.anchor-link {
             f'<div class="weekly-card {status_class}">'
             f'<div class="weekly-card-date">'
             f'📅 {row["날짜"]}({weekday_name})'
-            f'</div>'
+            f"</div>"
             f'<div class="weekly-card-grade">'
             f'{row["등급"]}'
-            f'</div>'
+            f"</div>"
             f'<div class="weekly-card-score">'
-            f'{score}점'
-            f'</div>'
+            f"{score}점"
+            f"</div>"
             '<div class="weekly-card-info">'
             f'<b>달 영향</b> : {row["달 영향"]}<br>'
-            f'<b>어두운 시간</b> : '
+            f"<b>어두운 시간</b> : "
             f'{row["천문박명 종료"]} ~ '
             f'{row["천문박명 시작"]}<br>'
-            f'<b>최적 시간</b> : '
+            f"<b>최적 시간</b> : "
             f'{row["최적 시간"]}<br>'
-            f'<b>평균 구름</b> : '
+            f"<b>평균 구름</b> : "
             f'{row["평균 구름 %"]:.0f}%'
-            '</div>'
-            '</div>'
+            "</div>"
+            "</div>"
         )
 
-    card_html += '</div>'
+    card_html += "</div>"
 
-    st.markdown(
-        card_html,
-        unsafe_allow_html=True
-    )
+    st.markdown(card_html, unsafe_allow_html=True)
 
-      # ======================================
+    # ======================================
     # 7일 상세 예보 표
     # ======================================
 
@@ -2643,28 +2234,15 @@ a.anchor-link {
         "최고 예상점수",
         "평균 강수확률 %",
         "평균 습도 %",
-        
     ]
 
-    existing_columns = [
-        col
-        for col in preferred_columns
-        if col in weekly_df.columns
-    ]
+    existing_columns = [col for col in preferred_columns if col in weekly_df.columns]
 
-    weekly_display_df = weekly_df[
-        existing_columns
-    ].copy()
+    weekly_display_df = weekly_df[existing_columns].copy()
 
-    weekly_display_df = weekly_display_df.reset_index(
-        drop=True
-    )
+    weekly_display_df = weekly_display_df.reset_index(drop=True)
 
-    st.dataframe(
-        weekly_display_df,
-        use_container_width=True,
-        hide_index=True
-    )
+    st.dataframe(weekly_display_df, use_container_width=True, hide_index=True)
 
     # ======================================
     # 이번 주 관측 추천 TOP 3
@@ -2673,11 +2251,7 @@ a.anchor-link {
     st.subheader("🏆 이번 주 관측 추천 TOP 3")
 
     top3 = (
-        weekly_df
-        .sort_values(
-            by="관측 점수",
-            ascending=False
-        )
+        weekly_df.sort_values(by="관측 점수", ascending=False)
         .head(3)
         .reset_index(drop=True)
     )
@@ -2731,7 +2305,7 @@ a.anchor-link {
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     medals = ["🥇", "🥈", "🥉"]
@@ -2743,18 +2317,14 @@ a.anchor-link {
 
         row = top3.iloc[i]
 
-        card_date = pd.to_datetime(
-            row["날짜"]
-        )
+        card_date = pd.to_datetime(row["날짜"])
 
         short_date = (
             f"{card_date.month}/{card_date.day}"
             f"({weekday_names[card_date.weekday()]})"
         )
 
-        score = int(
-            row["관측 점수"]
-        )
+        score = int(row["관측 점수"])
 
         top3_html += (
             '<div class="top3-card">'
@@ -2765,28 +2335,21 @@ a.anchor-link {
             '<div class="top3-info">'
             f'🔭 {row["최적 시간"]}<br>'
             f'☁️ {row["평균 구름 %"]:.0f}%'
-            '</div>'
-            '</div>'
+            "</div>"
+            "</div>"
         )
 
-    top3_html += '</div>'
+    top3_html += "</div>"
 
-    st.markdown(
-        top3_html,
-        unsafe_allow_html=True
-    )
+    st.markdown(top3_html, unsafe_allow_html=True)
 
-        # --------------------------------------
+    # --------------------------------------
     # 오늘 밤 관측 조건
     # --------------------------------------
 
-    night_df, night_start, night_end = build_night_dataframe(
-        weather
-    )
+    night_df, night_start, night_end = build_night_dataframe(weather)
 
-    day_weather_df = build_day_weather_dataframe(
-        weather
-    )
+    day_weather_df = build_day_weather_dataframe(weather)
 
     st.divider()
     st.header("🔭 오늘 밤 관측 조건")
@@ -2797,26 +2360,17 @@ a.anchor-link {
         # 7일 예보의 오늘 점수를 그대로 사용
         # ======================================
 
-        today_string = datetime.now(
-            KST
-        ).strftime("%Y-%m-%d")
+        today_string = datetime.now(KST).strftime("%Y-%m-%d")
 
-        today_forecast = weekly_df[
-            weekly_df["날짜"].astype(str)
-            == today_string
-        ]
+        today_forecast = weekly_df[weekly_df["날짜"].astype(str) == today_string]
 
         if len(today_forecast) > 0:
 
             today_row = today_forecast.iloc[0]
 
-            average_score = int(
-                today_row["관측 점수"]
-            )
+            average_score = int(today_row["관측 점수"])
 
-            night_grade = (
-                today_row["등급"]
-            )
+            night_grade = today_row["등급"]
 
         else:
 
@@ -2827,15 +2381,11 @@ a.anchor-link {
         # 오늘 밤 추천 시간
         # ======================================
 
-        best_window = find_best_observation_window(
-            night_df
-        )
+        best_window = find_best_observation_window(night_df)
 
         if best_window:
 
-            best_start, best_end, best_score = (
-                best_window
-            )
+            best_start, best_end, best_score = best_window
 
             if best_start.date() == best_end.date():
 
@@ -2854,15 +2404,12 @@ a.anchor-link {
                 )
 
             recommendation_text = (
-                f"🔭 추천 시간: {recommended_time}"
-                f" · 예상 {best_score}점"
+                f"🔭 추천 시간: {recommended_time}" f" · 예상 {best_score}점"
             )
 
         else:
 
-            recommendation_text = (
-                "🔭 추천 시간 계산 불가"
-            )
+            recommendation_text = "🔭 추천 시간 계산 불가"
 
         # ======================================
         # 오늘 밤 요약 카드 스타일
@@ -2945,7 +2492,7 @@ a.anchor-link {
             }
             </style>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
         # ======================================
@@ -2954,36 +2501,29 @@ a.anchor-link {
 
         night_summary_html = (
             '<div class="night-summary-grid">'
-
             '<div class="night-summary-card">'
             '<div class="night-summary-label">'
-            '⭐ 관측 점수'
-            '</div>'
+            "⭐ 관측 점수"
+            "</div>"
             f'<div class="night-summary-value">'
-            f'{average_score}점'
-            f'</div>'
-            '</div>'
-
+            f"{average_score}점"
+            f"</div>"
+            "</div>"
             '<div class="night-summary-card">'
             '<div class="night-summary-label">'
-            '🌌 관측 등급'
-            '</div>'
+            "🌌 관측 등급"
+            "</div>"
             f'<div class="night-summary-grade">'
-            f'{night_grade}'
-            f'</div>'
-            '</div>'
-
-            '</div>'
-
+            f"{night_grade}"
+            f"</div>"
+            "</div>"
+            "</div>"
             f'<div class="night-recommendation">'
-            f'{recommendation_text}'
-            '</div>'
+            f"{recommendation_text}"
+            "</div>"
         )
 
-        st.markdown(
-            night_summary_html,
-            unsafe_allow_html=True
-        )
+        st.markdown(night_summary_html, unsafe_allow_html=True)
 
         # ======================================
         # 시간별 상세 정보
@@ -2993,14 +2533,9 @@ a.anchor-link {
 
             table_df = day_weather_df.copy()
 
-            table_df["시간"] = (
-                table_df["시간"]
-                .dt.strftime("%m/%d %H:%M")
-            )
+            table_df["시간"] = table_df["시간"].dt.strftime("%m/%d %H:%M")
 
-            table_df["시정"] = (
-                table_df["시정"] / 1000
-            ).round(1)
+            table_df["시정"] = (table_df["시정"] / 1000).round(1)
 
             table_df = table_df[
                 [
@@ -3030,34 +2565,22 @@ a.anchor-link {
             )
 
             styled_table_df = table_df.style.map(
-                cloud_cell_style,
-                subset=[
-                    "전체 구름 %",
-                    "하층 %",
-                    "중층 %",
-                    "상층 %"
-                ]
+                cloud_cell_style, subset=["전체 구름 %", "하층 %", "중층 %", "상층 %"]
             )
 
-            st.dataframe(
-                styled_table_df,
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(styled_table_df, use_container_width=True, hide_index=True)
 
     else:
 
-        st.warning(
-            "오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다."
-        )
+        st.warning("오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다.")
     # --------------------------------------
     # 천문 계산 엔진
     # --------------------------------------
     engine = AstronomyEngine(latitude, longitude)
 
-        # --------------------------------------
-        # 행성
-        # --------------------------------------
+    # --------------------------------------
+    # 행성
+    # --------------------------------------
 
     st.divider()
     st.header("🪐 현재 행성 관측 정보")
@@ -3065,13 +2588,10 @@ a.anchor-link {
     with st.spinner("행성 위치를 계산하는 중..."):
         planet_df = engine.get_planets()
 
-    visible_planets = planet_df[
-        planet_df["관측"] == "✅ 관측 가능"
-    ]
+    visible_planets = planet_df[planet_df["관측"] == "✅ 관측 가능"]
 
     total_planets = len(planet_df)
     visible_count = len(visible_planets)
-
 
     st.markdown(
         """
@@ -3132,79 +2652,153 @@ a.anchor-link {
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-
 
     planet_summary_html = (
         '<div class="planet-summary-grid">'
-
         '<div class="planet-summary-card">'
         '<div class="planet-summary-label">🪐 전체 행성</div>'
         f'<div class="planet-summary-value">{total_planets}개</div>'
-        '</div>'
-
+        "</div>"
         '<div class="planet-summary-card">'
         '<div class="planet-summary-label">🔭 현재 관측 가능</div>'
         f'<div class="planet-summary-value">{visible_count}개</div>'
-        '</div>'
-
-        '</div>'
+        "</div>"
+        "</div>"
     )
 
-    st.markdown(
-        planet_summary_html,
-        unsafe_allow_html=True
-    )
-
+    st.markdown(planet_summary_html, unsafe_allow_html=True)
 
     if visible_count > 0:
 
-        visible_names = ", ".join(
-            visible_planets["천체"].tolist()
-        )
+        visible_names = ", ".join(visible_planets["천체"].tolist())
 
         st.markdown(
             (
                 '<div class="planet-recommendation">'
-                f'🔭 현재 추천: {visible_names}'
-                '</div>'
+                f"🔭 현재 추천: {visible_names}"
+                "</div>"
             ),
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     else:
 
-        st.warning(
-            "현재 조건에서 고도 15° 이상인 "
-            "관측 추천 행성이 없습니다."
-        )
-
+        st.warning("현재 조건에서 고도 15° 이상인 " "관측 추천 행성이 없습니다.")
 
     with st.expander("📊 행성 상세 정보"):
 
-        st.dataframe(
-            planet_df,
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(planet_df, use_container_width=True, hide_index=True)
     st.subheader("⏰ 오늘 밤 행성 출·남중·몰 / 최적 관측시간")
     st.caption(
-            "출·몰 시각은 고도 0° 교차, 관측 가능 시간은 천체 고도 15° 이상 + "
-            "태양 고도 -6° 이하를 기준으로 계산합니다."
-        )
+        "출·몰 시각은 고도 0° 교차, 관측 가능 시간은 천체 고도 15° 이상 + "
+        "태양 고도 -6° 이하를 기준으로 계산합니다."
+    )
 
     with st.spinner("오늘 밤 행성 관측 시간을 계산하는 중..."):
-            planet_schedule_df = engine.get_planet_night_schedule(
-                night_start,
-                night_end,
-            )
+        planet_schedule_df = engine.get_planet_night_schedule(
+            night_start,
+            night_end,
+        )
 
     st.dataframe(
-            planet_schedule_df,
-            use_container_width=True,
-            hide_index=True,
+        planet_schedule_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    # --------------------------------------
+    # 별자리
+    # --------------------------------------
+
+    st.divider()
+    st.header("✨ 현재 별자리 관측 정보")
+
+    constellation_catalog = load_constellation_catalog()
+
+    with st.spinner("별자리 위치를 계산하는 중..."):
+        constellation_df = engine.get_constellations(constellation_catalog)
+
+    current_month = datetime.now(KST).month
+
+    if current_month in [3, 4, 5]:
+        current_season = "봄"
+        season_icon = "🌸"
+
+    elif current_month in [6, 7, 8]:
+        current_season = "여름"
+        season_icon = "☀️"
+
+    elif current_month in [9, 10, 11]:
+        current_season = "가을"
+        season_icon = "🍂"
+
+    else:
+        current_season = "겨울"
+        season_icon = "❄️"
+
+    visible_stars = constellation_df[constellation_df["관측 가능"] == True].copy()
+
+    visible_constellations = visible_stars.drop_duplicates(subset=["별자리"]).copy()
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            f"{season_icon} 현재 계절",
+            current_season,
         )
+
+    with col2:
+        st.metric(
+            "👀 현재 관측 가능",
+            f"{len(visible_constellations)}개",
+        )
+
+    with st.expander(
+        "✨ 현재 보이는 별자리",
+        expanded=False,
+    ):
+        if visible_stars.empty:
+            st.info("현재 관측 가능한 별자리가 없습니다.")
+
+        else:
+            display_constellations = (
+                visible_stars[
+                    [
+                        "계절",
+                        "별자리",
+                        "대표별",
+                        "등급",
+                        "고도 °",
+                        "방위각 °",
+                        "방향",
+                    ]
+                ]
+                .sort_values(
+                    by=[
+                        "고도 °",
+                        "등급",
+                    ],
+                    ascending=[
+                        False,
+                        True,
+                    ],
+                )
+                .reset_index(drop=True)
+            )
+
+            st.dataframe(
+                display_constellations,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    st.caption(
+        "※ 별자리의 대표별이 고도 15° 이상이고 "
+        "태양 고도가 -6° 이하일 때 현재 관측 가능으로 표시합니다."
+    )
 
     # --------------------------------------
     # 달
@@ -3282,57 +2876,44 @@ a.anchor-link {
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-
 
     moon_html = (
         '<div class="moon-grid">'
-
         '<div class="moon-card">'
         '<div class="moon-label">🌙 달 밝기</div>'
         f'<div class="moon-value">{moon["밝기"]:.1f}%</div>'
-        '</div>'
-
+        "</div>"
         '<div class="moon-card">'
         '<div class="moon-label">⬆️ 현재 고도</div>'
         f'<div class="moon-value">{moon["고도"]:.1f}°</div>'
-        '</div>'
-
+        "</div>"
         '<div class="moon-card">'
         '<div class="moon-label">🧭 방위각</div>'
         f'<div class="moon-value">{moon["방위각"]:.1f}°</div>'
-        '</div>'
-
+        "</div>"
         '<div class="moon-card">'
         '<div class="moon-label">🧭 방향</div>'
         f'<div class="moon-value">{moon["방향"]}</div>'
-        '</div>'
-
+        "</div>"
         '<div class="moon-card">'
         '<div class="moon-label">📏 거리</div>'
         f'<div class="moon-value">{moon["거리_km"]:,} km</div>'
-        '</div>'
-
+        "</div>"
         '<div class="moon-card">'
         '<div class="moon-label">🌌 심우주 영향</div>'
         f'<div class="moon-value">{moon["달빛영향"]}</div>'
-        '</div>'
-
-        '</div>'
-
+        "</div>"
+        "</div>"
         '<div class="moon-phase-card">'
         f'🌙 <b>{moon["위상"]}</b>'
         f' · 위상각 {moon["위상각"]:.1f}°'
         f' · {moon["상태"]}'
-        '</div>'
+        "</div>"
     )
 
-    st.markdown(
-        moon_html,
-        unsafe_allow_html=True
-    )
-
+    st.markdown(moon_html, unsafe_allow_html=True)
 
     # --------------------------------------
     # 메시에 M1 ~ M110
@@ -3349,10 +2930,7 @@ a.anchor-link {
             weather_score=average_score,
         )
 
-    observable_df = messier_df[
-        messier_df["추천점수"] > 0
-    ].copy()
-
+    observable_df = messier_df[messier_df["추천점수"] > 0].copy()
 
     # ======================================
     # 메시에 요약 카드
@@ -3367,15 +2945,12 @@ a.anchor-link {
         if best_messier["이름"]:
             best_label += f' {best_messier["이름"]}'
 
-        best_score = int(
-            best_messier["추천점수"]
-        )
+        best_score = int(best_messier["추천점수"])
 
     else:
 
         best_label = "없음"
         best_score = 0
-
 
     st.markdown(
         """
@@ -3465,37 +3040,28 @@ a.anchor-link {
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-
 
     messier_summary_html = (
         '<div class="messier-summary-grid">'
-
         '<div class="messier-summary-card">'
         '<div class="messier-summary-label">🔭 현재 관측 가능</div>'
         f'<div class="messier-summary-value">{len(observable_df)}개</div>'
-        '</div>'
-
+        "</div>"
         '<div class="messier-summary-card">'
         '<div class="messier-summary-label">🌙 달 밝기</div>'
         f'<div class="messier-summary-value">{moon["밝기"]:.1f}%</div>'
-        '</div>'
-
-        '</div>'
-
+        "</div>"
+        "</div>"
         '<div class="messier-best-card">'
         '<div class="messier-best-label">🏆 현재 1순위</div>'
         f'<div class="messier-best-name">{best_label}</div>'
         f'<div class="messier-best-score">추천점수 {best_score}점</div>'
-        '</div>'
+        "</div>"
     )
 
-    st.markdown(
-        messier_summary_html,
-        unsafe_allow_html=True
-    )
-
+    st.markdown(messier_summary_html, unsafe_allow_html=True)
 
     # ======================================
     # 현재 추천 TOP 3
@@ -3503,19 +3069,13 @@ a.anchor-link {
 
     st.subheader("🏆 현재 추천 TOP 3")
 
-    messier_medals = [
-        "🥇",
-        "🥈",
-        "🥉"
-    ]
+    messier_medals = ["🥇", "🥈", "🥉"]
 
     current_top3 = observable_df.head(3)
 
     if len(current_top3) > 0:
 
-        messier_top3_html = (
-            '<div class="messier-top3-grid">'
-        )
+        messier_top3_html = '<div class="messier-top3-grid">'
 
         for i in range(len(current_top3)):
 
@@ -3524,31 +3084,23 @@ a.anchor-link {
             object_name = row["메시에"]
 
             if row["이름"]:
-                object_name += (
-                    f'<br>{row["이름"]}'
-                )
+                object_name += f'<br>{row["이름"]}'
 
             messier_top3_html += (
                 '<div class="messier-top3-card">'
                 f'<div class="messier-rank">{messier_medals[i]}</div>'
                 f'<div class="messier-name">{object_name}</div>'
                 f'<div class="messier-score">{row["추천점수"]}점</div>'
-                '</div>'
+                "</div>"
             )
 
-        messier_top3_html += '</div>'
+        messier_top3_html += "</div>"
 
-        st.markdown(
-            messier_top3_html,
-            unsafe_allow_html=True
-        )
+        st.markdown(messier_top3_html, unsafe_allow_html=True)
 
     else:
 
-        st.warning(
-            "현재 관측 가능한 메시에 천체가 없습니다."
-        )
-
+        st.warning("현재 관측 가능한 메시에 천체가 없습니다.")
 
     # ======================================
     # 오늘의 TOP 10
@@ -3572,45 +3124,28 @@ a.anchor-link {
                 ]
             ]
 
-            st.dataframe(
-                top10,
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(top10, use_container_width=True, hide_index=True)
 
         else:
 
-            st.warning(
-                "현재 시각에는 관측 추천 가능한 "
-                "메시에 천체가 없습니다."
-            )
-
+            st.warning("현재 시각에는 관측 추천 가능한 " "메시에 천체가 없습니다.")
 
     # ======================================
     # 오늘 밤 최적 관측시간
     # ======================================
 
-    weather_timeline = build_half_hour_weather_timeline(
-        night_df
-    )
+    weather_timeline = build_half_hour_weather_timeline(night_df)
 
-    with st.spinner(
-        "M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."
-    ):
+    with st.spinner("M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."):
 
         messier_best_df = engine.get_messier_best_times(
             messier_catalog,
             weather_timeline,
         )
 
-    tonight_messier = messier_best_df[
-        messier_best_df["오늘 최고점수"] > 0
-    ].copy()
+    tonight_messier = messier_best_df[messier_best_df["오늘 최고점수"] > 0].copy()
 
-
-    with st.expander(
-        "⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"
-    ):
+    with st.expander("⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"):
 
         st.caption(
             "30분 간격의 날씨 점수, 천체 고도, "
@@ -3627,11 +3162,7 @@ a.anchor-link {
 
         else:
 
-            st.warning(
-                "오늘 밤 추천 가능한 메시에 천체를 "
-                "찾지 못했습니다."
-            )
-
+            st.warning("오늘 밤 추천 가능한 메시에 천체를 " "찾지 못했습니다.")
 
     # ======================================
     # 전체 목록
@@ -3639,10 +3170,10 @@ a.anchor-link {
 
     with st.expander("🔎 M1 ~ M110 전체 목록"):
 
-     st.caption(
-        "※ 메시에 추천점수는 동아리용 경험식이며 "
-        "실제 관측 환경에 따라 차이가 있을 수 있습니다."
-    )
+        st.caption(
+            "※ 메시에 추천점수는 동아리용 경험식이며 "
+            "실제 관측 환경에 따라 차이가 있을 수 있습니다."
+        )
     messier_catalog = load_messier_catalog()
 
     with st.spinner("M1 ~ M110 위치와 관측 조건을 계산하는 중..."):
@@ -3652,9 +3183,7 @@ a.anchor-link {
             weather_score=average_score,
         )
 
-    observable_df = messier_df[
-        messier_df["추천점수"] > 0
-    ].copy()
+    observable_df = messier_df[messier_df["추천점수"] > 0].copy()
 
     if len(observable_df) > 0:
 
@@ -3664,15 +3193,12 @@ a.anchor-link {
         if best_messier["이름"]:
             best_label += f' {best_messier["이름"]}'
 
-        best_score = int(
-            best_messier["추천점수"]
-        )
+        best_score = int(best_messier["추천점수"])
 
     else:
 
         best_label = "없음"
         best_score = 0
-
 
     st.markdown(
         """
@@ -3744,25 +3270,20 @@ a.anchor-link {
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-
 
     messier_summary_html = (
         '<div class="messier-summary-grid">'
-
         '<div class="messier-summary-card">'
         '<div class="messier-summary-label">🔭 현재 관측 가능</div>'
         f'<div class="messier-summary-value">{len(observable_df)}개</div>'
-        '</div>'
-
+        "</div>"
         '<div class="messier-summary-card">'
         '<div class="messier-summary-label">🌙 달 밝기</div>'
         f'<div class="messier-summary-value">{moon["밝기"]:.1f}%</div>'
-        '</div>'
-
-        '</div>'
-
+        "</div>"
+        "</div>"
         '<div class="messier-best-card">'
         '<div class="messier-best-label">🏆 현재 1순위</div>'
         f'<div class="messier-best-name">{best_label}</div>'
@@ -3771,18 +3292,12 @@ a.anchor-link {
     if best_score > 0:
 
         messier_summary_html += (
-            f'<div class="messier-best-score">'
-            f'추천점수 {best_score}점'
-            '</div>'
+            f'<div class="messier-best-score">' f"추천점수 {best_score}점" "</div>"
         )
 
-    messier_summary_html += '</div>'
+    messier_summary_html += "</div>"
 
-    st.markdown(
-        messier_summary_html,
-        unsafe_allow_html=True
-    )
-
+    st.markdown(messier_summary_html, unsafe_allow_html=True)
 
     with st.expander("🏆 오늘의 메시에 추천 TOP 10", expanded=False):
 
@@ -3802,11 +3317,7 @@ a.anchor-link {
                 ]
             ]
 
-            st.dataframe(
-                top10,
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(top10, use_container_width=True, hide_index=True)
 
         else:
 
@@ -3815,34 +3326,24 @@ a.anchor-link {
                 "충분히 어두운 조건의 메시에 천체가 없습니다."
             )
 
+        with st.expander("⏰ 오늘 밤 메시에 최적 관측시간 TOP 10", expanded=False):
 
-        with st.expander(
-        "⏰ 오늘 밤 메시에 최적 관측시간 TOP 10",
-        expanded=False
-    ):
+            st.caption(
+                "30분 간격의 날씨 점수, 천체 고도, "
+                "달 밝기·각거리, 겉보기등급을 함께 계산해 "
+                "오늘 밤 가장 좋은 시간대를 찾습니다."
+            )
 
-         st.caption(
-            "30분 간격의 날씨 점수, 천체 고도, "
-            "달 밝기·각거리, 겉보기등급을 함께 계산해 "
-            "오늘 밤 가장 좋은 시간대를 찾습니다."
-        )
+        weather_timeline = build_half_hour_weather_timeline(night_df)
 
-        weather_timeline = build_half_hour_weather_timeline(
-            night_df
-        )
-
-        with st.spinner(
-            "M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."
-        ):
+        with st.spinner("M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."):
 
             messier_best_df = engine.get_messier_best_times(
                 messier_catalog,
                 weather_timeline,
             )
 
-        tonight_messier = messier_best_df[
-            messier_best_df["오늘 최고점수"] > 0
-        ].copy()
+        tonight_messier = messier_best_df[messier_best_df["오늘 최고점수"] > 0].copy()
 
         if len(tonight_messier) > 0:
 
@@ -3854,57 +3355,29 @@ a.anchor-link {
 
         else:
 
-            st.warning(
-                "오늘 밤 추천 가능한 메시에 천체를 찾지 못했습니다."
-            )
+            st.warning("오늘 밤 추천 가능한 메시에 천체를 찾지 못했습니다.")
 
+        with st.expander("🔎 M1 ~ M110 전체 목록", expanded=False):
 
-        with st.expander(
-        "🔎 M1 ~ M110 전체 목록",
-        expanded=False
-    
-    ):
+            filter_col1, filter_col2 = st.columns(2)
 
-         filter_col1, filter_col2 = st.columns(2)
+        only_observable = filter_col1.checkbox("현재 관측 가능한 천체만", value=True)
 
-        only_observable = filter_col1.checkbox(
-            "현재 관측 가능한 천체만",
-            value=True
-        )
+        type_options = ["전체"] + sorted(messier_df["종류"].dropna().unique().tolist())
 
-        type_options = [
-            "전체"
-        ] + sorted(
-            messier_df["종류"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-        selected_type = filter_col2.selectbox(
-            "천체 종류",
-            type_options
-        )
+        selected_type = filter_col2.selectbox("천체 종류", type_options)
 
         display_messier = messier_df.copy()
 
         if only_observable:
 
-            display_messier = display_messier[
-                display_messier["추천점수"] > 0
-            ]
+            display_messier = display_messier[display_messier["추천점수"] > 0]
 
         if selected_type != "전체":
 
-            display_messier = display_messier[
-                display_messier["종류"] == selected_type
-            ]
+            display_messier = display_messier[display_messier["종류"] == selected_type]
 
-        st.dataframe(
-            display_messier,
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(display_messier, use_container_width=True, hide_index=True)
 
         st.caption(
             "※ 메시에 추천점수는 동아리용 v1 경험식입니다. "

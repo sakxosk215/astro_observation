@@ -7,7 +7,6 @@ import pandas as pd
 from skyfield import almanac
 from skyfield.api import Star, load, wgs84
 
-
 KST = ZoneInfo("Asia/Seoul")
 
 PLANETS = {
@@ -200,109 +199,55 @@ class AstronomyEngine:
         self.moon = self.eph["moon"]
 
         self.topos = wgs84.latlon(
-            latitude_degrees=latitude,
-            longitude_degrees=longitude
+            latitude_degrees=latitude, longitude_degrees=longitude
         )
 
-        self.observer = (
-            self.earth
-            + self.topos
-        )
-
+        self.observer = self.earth + self.topos
 
     def get_sun_altitude(self, t):
 
-        apparent = (
-            self.observer
-            .at(t)
-            .observe(self.sun)
-            .apparent()
-        )
+        apparent = self.observer.at(t).observe(self.sun).apparent()
 
         altitude, _, _ = apparent.altaz()
 
         return altitude.degrees
 
-
     def get_astronomical_night(self, date_str):
 
-        local_noon = (
-            datetime.strptime(
-                date_str,
-                "%Y-%m-%d"
-            )
-            .replace(
-                hour=12,
-                minute=0,
-                second=0,
-                microsecond=0,
-                tzinfo=KST
-            )
+        local_noon = datetime.strptime(date_str, "%Y-%m-%d").replace(
+            hour=12, minute=0, second=0, microsecond=0, tzinfo=KST
         )
 
-        next_noon = (
-            local_noon
-            + timedelta(days=1)
-        )
+        next_noon = local_noon + timedelta(days=1)
 
-        t0 = self.ts.from_datetime(
-            local_noon
-        )
+        t0 = self.ts.from_datetime(local_noon)
 
-        t1 = self.ts.from_datetime(
-            next_noon
-        )
+        t1 = self.ts.from_datetime(next_noon)
 
-        twilight_function = (
-            almanac.dark_twilight_day(
-                self.eph,
-                self.topos
-            )
-        )
+        twilight_function = almanac.dark_twilight_day(self.eph, self.topos)
 
-        times, events = (
-            almanac.find_discrete(
-                t0,
-                t1,
-                twilight_function
-            )
-        )
+        times, events = almanac.find_discrete(t0, t1, twilight_function)
 
-        previous_state = int(
-            twilight_function(t0).item()
-        )
+        previous_state = int(twilight_function(t0).item())
 
         astronomical_night_start = None
         astronomical_night_end = None
 
-        for t, event in zip(
-            times,
-            events
-        ):
+        for t, event in zip(times, events):
 
             new_state = int(event)
 
             local_time = t.astimezone(KST)
 
-            if (
-                previous_state == 1
-                and new_state == 0
-            ):
+            if previous_state == 1 and new_state == 0:
                 astronomical_night_start = local_time
 
-            elif (
-                previous_state == 0
-                and new_state == 1
-            ):
+            elif previous_state == 0 and new_state == 1:
                 astronomical_night_end = local_time
 
             previous_state = new_state
 
-        return (
-            astronomical_night_start,
-            astronomical_night_end
-        )
-
+        return (astronomical_night_start, astronomical_night_end)
 
     def get_planets(self):
         now = datetime.now(KST)
@@ -355,45 +300,151 @@ class AstronomyEngine:
         df = pd.DataFrame(results)
         return df.sort_values(by="고도 °", ascending=False).reset_index(drop=True)
 
+    def get_constellations(self, catalog):
+        """
+        현재 위치/시각 기준으로
+        별자리 대표별의 고도·방위각과 관측 가능 여부를 계산한다.
+        """
+
+        now = datetime.now(KST)
+        t = self.ts.from_datetime(now)
+
+        observer_at_t = self.observer.at(t)
+        sun_alt = self.get_sun_altitude(t)
+
+        constellations = catalog.get(
+            "constellations",
+            catalog,
+        )
+
+        rows = []
+
+        for constellation in constellations:
+            season = constellation.get(
+                "season",
+                "",
+            )
+
+            constellation_name = constellation.get(
+                "name",
+                "",
+            )
+
+            constellation_name_en = constellation.get(
+                "name_en",
+                "",
+            )
+
+            stars = constellation.get(
+                "stars",
+                [],
+            )
+
+            for star_data in stars:
+                star_name = star_data.get(
+                    "name",
+                    "",
+                )
+
+                star_name_en = star_data.get(
+                    "name_en",
+                    "",
+                )
+
+                ra = float(star_data["ra"])
+
+                dec = float(star_data["dec"])
+
+                magnitude = float(
+                    star_data.get(
+                        "mag",
+                        99,
+                    )
+                )
+
+                target = Star(
+                    ra_hours=ra,
+                    dec_degrees=dec,
+                )
+
+                apparent = observer_at_t.observe(target).apparent()
+
+                altitude, azimuth, _ = apparent.altaz()
+
+                alt = altitude.degrees
+                az = azimuth.degrees
+
+                observable = alt >= 15 and sun_alt <= -6
+
+                if alt < 0:
+                    status = "❌ 지평선 아래"
+
+                elif alt < 15:
+                    status = "⚠️ 고도 낮음"
+
+                elif sun_alt > -6:
+                    status = "☀️ 하늘이 밝음"
+
+                else:
+                    status = "✅ 관측 가능"
+
+                rows.append(
+                    {
+                        "계절": season,
+                        "별자리": constellation_name,
+                        "영문 별자리": constellation_name_en,
+                        "대표별": star_name,
+                        "영문 별": star_name_en,
+                        "등급": magnitude,
+                        "고도 °": round(
+                            alt,
+                            1,
+                        ),
+                        "방위각 °": round(
+                            az,
+                            1,
+                        ),
+                        "방향": azimuth_to_direction(az),
+                        "관측 가능": observable,
+                        "상태": status,
+                    }
+                )
+
+        df = pd.DataFrame(rows)
+
+        if df.empty:
+            return df
+
+        return df.sort_values(
+            by=[
+                "관측 가능",
+                "고도 °",
+                "등급",
+            ],
+            ascending=[
+                False,
+                False,
+                True,
+            ],
+        ).reset_index(drop=True)
+
     def get_moon_at_time(self, target_datetime):
 
         if target_datetime.tzinfo is None:
-            target_datetime = target_datetime.replace(
-                tzinfo=KST
-            )
+            target_datetime = target_datetime.replace(tzinfo=KST)
 
-        t = self.ts.from_datetime(
-            target_datetime
-        )
+        t = self.ts.from_datetime(target_datetime)
 
-        apparent = (
-            self.observer
-            .at(t)
-            .observe(self.moon)
-            .apparent()
-        )
+        apparent = self.observer.at(t).observe(self.moon).apparent()
 
         altitude, azimuth, distance = apparent.altaz()
 
-        illumination = (
-            almanac.fraction_illuminated(
-                self.eph,
-                "moon",
-                t
-            )
-            * 100
-        )
+        illumination = almanac.fraction_illuminated(self.eph, "moon", t) * 100
 
         return {
             "밝기": round(illumination, 1),
-            "고도": round(
-                altitude.degrees,
-                1
-            ),
-            "방위각": round(
-                azimuth.degrees,
-                1
-            )
+            "고도": round(altitude.degrees, 1),
+            "방위각": round(azimuth.degrees, 1),
         }
 
     def get_moon(self):
@@ -508,9 +559,7 @@ class AstronomyEngine:
             set_idx = np.where((alt[:-1] >= 0.0) & (alt[1:] < 0.0))[0] + 1
 
             # 남중 후보는 고도 국소 최대값 중 오늘 밤 중앙에 가장 가까운 것으로 선택한다.
-            local_max = np.where(
-                (alt[1:-1] >= alt[:-2]) & (alt[1:-1] > alt[2:])
-            )[0] + 1
+            local_max = np.where((alt[1:-1] >= alt[:-2]) & (alt[1:-1] > alt[2:]))[0] + 1
 
             if len(local_max) > 0:
                 transit_idx = min(
@@ -527,11 +576,7 @@ class AstronomyEngine:
             set_time = times[int(set_after[0])] if len(set_after) else None
             transit_time = times[int(transit_idx)]
 
-            observable = (
-                night_mask
-                & (alt >= float(min_altitude))
-                & (sun_alt <= -6.0)
-            )
+            observable = night_mask & (alt >= float(min_altitude)) & (sun_alt <= -6.0)
 
             runs = self._mask_runs(observable)
             if runs:
@@ -556,7 +601,11 @@ class AstronomyEngine:
                 )
                 best_text = best_time.strftime("%H:%M")
             else:
-                best_alt = float(np.max(alt[night_mask])) if np.any(night_mask) else float(np.max(alt))
+                best_alt = (
+                    float(np.max(alt[night_mask]))
+                    if np.any(night_mask)
+                    else float(np.max(alt))
+                )
                 window_text = "-"
                 best_text = "-"
 
@@ -599,7 +648,9 @@ class AstronomyEngine:
 
         moon_apparent = observer_at.observe(self.moon).apparent()
         moon_alt = np.asarray(moon_apparent.altaz()[0].degrees, dtype=float)
-        moon_phase = np.asarray(almanac.moon_phase(self.eph, sky_times).radians, dtype=float)
+        moon_phase = np.asarray(
+            almanac.moon_phase(self.eph, sky_times).radians, dtype=float
+        )
         moon_illumination = 0.5 * (1.0 - np.cos(moon_phase)) * 100.0
 
         if len(times) >= 2:
@@ -610,7 +661,9 @@ class AstronomyEngine:
         else:
             step_minutes = 30
 
-        objects = catalog.get("objects", catalog) if isinstance(catalog, dict) else catalog
+        objects = (
+            catalog.get("objects", catalog) if isinstance(catalog, dict) else catalog
+        )
         rows = []
 
         for obj in objects:
@@ -696,7 +749,9 @@ class AstronomyEngine:
                     window_text = best_time_text
 
             messier_id = obj["M"]
-            common_name = MESSIER_KOREAN_NAMES.get(messier_id, obj.get("N", ""))
+            common_name = MESSIER_KOREAN_NAMES.get(
+                messier_id, MESSIER_TYPE_KO.get(type_code, "천체")
+            )
 
             rows.append(
                 {
@@ -731,7 +786,9 @@ class AstronomyEngine:
         moon_alt = moon_altitude.degrees
         moon_illumination = almanac.fraction_illuminated(self.eph, "moon", t) * 100
 
-        objects = catalog.get("objects", catalog) if isinstance(catalog, dict) else catalog
+        objects = (
+            catalog.get("objects", catalog) if isinstance(catalog, dict) else catalog
+        )
         rows = []
 
         for obj in objects:
