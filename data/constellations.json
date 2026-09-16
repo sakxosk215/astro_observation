@@ -1,0 +1,312 @@
+{
+    "constellations": [
+        {
+            "season": "봄",
+            "name": "사자자리",
+            "name_en": "Leo",
+            "stars": [
+                {
+                    "name": "레굴루스",
+                    "name_en": "Regulus",
+                    "ra": 10.1395,
+                    "dec": 11.9672,
+                    "mag": 1.35
+                }
+            ]
+        },
+        {
+            "season": "봄",
+            "name": "처녀자리",
+            "name_en": "Virgo",
+            "stars": [
+                {
+                    "name": "스피카",
+                    "name_en": "Spica",
+                    "ra": 13.4199,
+                    "dec": -11.1614,
+                    "mag": 0.98
+                }
+            ]
+        },
+        {
+            "season": "봄",
+            "name": "목동자리",
+            "name_en": "Boötes",
+            "stars": [
+                {
+                    "name": "아크투루스",
+                    "name_en": "Arcturus",
+                    "ra": 14.2610,
+                    "dec": 19.1824,
+                    "mag": -0.05
+                }
+            ]
+        },
+        {
+            "season": "봄",
+            "name": "큰곰자리",
+            "name_en": "Ursa Major",
+            "stars": [
+                {
+                    "name": "두베",
+                    "name_en": "Dubhe",
+                    "ra": 11.0621,
+                    "dec": 61.7508,
+                    "mag": 1.79
+                },
+                {
+                    "name": "알리오트",
+                    "name_en": "Alioth",
+                    "ra": 12.9005,
+                    "dec": 55.9598,
+                    "mag": 1.76
+                }
+            ]
+        },
+        {
+            "season": "봄",
+            "name": "사냥개자리",
+            "name_en": "Canes Venatici",
+            "stars": [
+                {
+                    "name": "코르 카롤리",
+                    "name_en": "Cor Caroli",
+                    "ra": 12.9338,
+                    "dec": 38.3184,
+                    "mag": 2.84
+                }
+            ]
+        },
+        {
+            "season": "여름",
+            "name": "거문고자리",
+            "name_en": "Lyra",
+            "stars": [
+                {
+                    "name": "베가",
+                    "name_en": "Vega",
+                    "ra": 18.6156,
+                    "dec": 38.7837,
+                    "mag": 0.03
+                }
+            ]
+        },
+        {
+            "season": "여름",
+            "name": "백조자리",
+            "name_en": "Cygnus",
+            "stars": [
+                {
+                    "name": "데네브",
+                    "name_en": "Deneb",
+                    "ra": 20.6905,
+                    "dec": 45.2803,
+                    "mag": 1.25
+                }
+            ]
+        },
+        {
+            "season": "여름",
+            "name": "독수리자리",
+            "name_en": "Aquila",
+            "stars": [
+                {
+                    "name": "알타이르",
+                    "name_en": "Altair",
+                    "ra": 19.8464,
+                    "dec": 8.8683,
+                    "mag": 0.77
+                }
+            ]
+        },
+        {
+            "season": "여름",
+            "name": "전갈자리",
+            "name_en": "Scorpius",
+            "stars": [
+                {
+                    "name": "안타레스",
+                    "name_en": "Antares",
+                    "ra": 16.4901,
+                    "dec": -26.4320,
+                    "mag": 0.96
+                }
+            ]
+        },
+        {
+            "season": "여름",
+            "name": "궁수자리",
+            "name_en": "Sagittarius",
+            "stars": [
+                {
+                    "name": "눈키",
+                    "name_en": "Nunki",
+                    "ra": 18.9211,
+                    "dec": -26.2967,
+                    "mag": 2.05
+                }
+            ]
+        },
+        {
+            "season": "가을",
+            "name": "페가수스자리",
+            "name_en": "Pegasus",
+            "stars": [
+                {
+                    "name": "마르카브",
+                    "name_en": "Markab",
+                    "ra": 23.0794,
+                    "dec": 15.2053,
+                    "mag": 2.49
+                }
+            ]
+        },
+        {
+            "season": "가을",
+            "name": "안드로메다자리",
+            "name_en": "Andromeda",
+            "stars": [
+                {
+                    "name": "알페라츠",
+                    "name_en": "Alpheratz",
+                    "ra": 0.1398,
+                    "dec": 29.0904,
+                    "mag": 2.06
+                }
+            ]
+        },
+        {
+            "season": "가을",
+            "name": "물병자리",
+            "name_en": "Aquarius",
+            "stars": [
+                {
+                    "name": "사달수드",
+                    "name_en": "Sadalsuud",
+                    "ra": 21.5259,
+                    "dec": -5.5712,
+                    "mag": 2.87
+                }
+            ]
+        },
+        {
+            "season": "가을",
+            "name": "물고기자리",
+            "name_en": "Pisces",
+            "stars": [
+                {
+                    "name": "알레샤",
+                    "name_en": "Alrescha",
+                    "ra": 2.0341,
+                    "dec": 2.7638,
+                    "mag": 3.82
+                }
+            ]
+        },
+        {
+            "season": "가을",
+            "name": "고래자리",
+            "name_en": "Cetus",
+            "stars": [
+                {
+                    "name": "디프다",
+                    "name_en": "Diphda",
+                    "ra": 0.7265,
+                    "dec": -17.9866,
+                    "mag": 2.04
+                }
+            ]
+        },
+        {
+            "season": "겨울",
+            "name": "오리온자리",
+            "name_en": "Orion",
+            "stars": [
+                {
+                    "name": "베텔게우스",
+                    "name_en": "Betelgeuse",
+                    "ra": 5.9195,
+                    "dec": 7.4071,
+                    "mag": 0.50
+                },
+                {
+                    "name": "리겔",
+                    "name_en": "Rigel",
+                    "ra": 5.2423,
+                    "dec": -8.2016,
+                    "mag": 0.13
+                }
+            ]
+        },
+        {
+            "season": "겨울",
+            "name": "황소자리",
+            "name_en": "Taurus",
+            "stars": [
+                {
+                    "name": "알데바란",
+                    "name_en": "Aldebaran",
+                    "ra": 4.5987,
+                    "dec": 16.5093,
+                    "mag": 0.85
+                }
+            ]
+        },
+        {
+            "season": "겨울",
+            "name": "쌍둥이자리",
+            "name_en": "Gemini",
+            "stars": [
+                {
+                    "name": "폴룩스",
+                    "name_en": "Pollux",
+                    "ra": 7.7553,
+                    "dec": 28.0262,
+                    "mag": 1.14
+                }
+            ]
+        },
+        {
+            "season": "겨울",
+            "name": "큰개자리",
+            "name_en": "Canis Major",
+            "stars": [
+                {
+                    "name": "시리우스",
+                    "name_en": "Sirius",
+                    "ra": 6.7525,
+                    "dec": -16.7161,
+                    "mag": -1.46
+                }
+            ]
+        },
+        {
+            "season": "겨울",
+            "name": "작은개자리",
+            "name_en": "Canis Minor",
+            "stars": [
+                {
+                    "name": "프로키온",
+                    "name_en": "Procyon",
+                    "ra": 7.6550,
+                    "dec": 5.2250,
+                    "mag": 0.34
+                }
+            ]
+        },
+        {
+            "season": "겨울",
+            "name": "마차부자리",
+            "name_en": "Auriga",
+            "stars": [
+                {
+                    "name": "카펠라",
+                    "name_en": "Capella",
+                    "ra": 5.2782,
+                    "dec": 45.9980,
+                    "mag": 0.08
+                }
+            ]
+        }
+    ]
+}
