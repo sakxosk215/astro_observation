@@ -1690,12 +1690,18 @@ def build_weekly_forecast(weather, engine):
         # 구름 40% 이상인 시간 비율
         cloudy_ratio = (night["유효구름량"] >= 40).mean()
 
+        # 구름 40~69%인 시간 비율
+        moderate_cloudy_ratio = (
+            (night["유효구름량"] >= 40) & (night["유효구름량"] < 70)
+        ).mean()
+
         # 구름 70% 이상인 시간 비율
         very_cloudy_ratio = (night["유효구름량"] >= 70).mean()
 
         # 강수확률 30% 이상인 시간 비율
         rainy_ratio = (night["강수확률"] >= 30).mean()
-               # ==================================
+
+        # ==================================
         # 최종 밤 점수
         # ==================================
 
@@ -1713,46 +1719,51 @@ def build_weekly_forecast(weather, engine):
         average_effective_cloud = night_effective_cloud.mean()
 
         # 평균보다 나쁜 시간대의 영향을 더 크게 반영
-        score = (
-            average_score * 0.55
-            + lower_score * 0.35
-            + best_score * 0.10
-        )
+        score = average_score * 0.55 + lower_score * 0.35 + best_score * 0.10
 
-        # 밤 전체가 흐릴수록 추가 감점
-        score -= cloudy_ratio * 25
-        score -= very_cloudy_ratio * 30
-        score -= rainy_ratio * 15
+        # ==================================
+        # 밤 전체 추가 감점
+        # ==================================
 
-        # 평균 구름량 자체도 추가 반영
-        score -= average_effective_cloud * 0.25
+        # 40~69% 구름인 시간
+        score -= moderate_cloudy_ratio * 18
 
-        # 흐린 시간이 밤의 1/3 이상이면
+        # 70% 이상 매우 흐린 시간
+        score -= very_cloudy_ratio * 25
+
+        # 비 올 가능성이 높은 시간
+        score -= rainy_ratio * 12
+
+        # 평균 구름량 추가 반영
+        score -= average_effective_cloud * 0.15
+
+        # ==================================
+        # 점수 상한
+        # ==================================
+
+        # 구름 40% 이상인 시간이 밤의 1/3 이상
         if cloudy_ratio >= 0.35:
-            score = min(score, 74)
+            score = min(score, 78)
 
-        # 밤 절반 이상이 흐리면
+        # 구름 40% 이상인 시간이 밤의 절반 이상
         if cloudy_ratio >= 0.50:
-            score = min(score, 64)
+            score = min(score, 68)
 
-        # 매우 흐린 시간이 30% 이상이면
+        # 매우 흐린 시간이 30% 이상
         if very_cloudy_ratio >= 0.30:
-            score = min(score, 54)
+            score = min(score, 58)
 
-        # 매우 흐린 시간이 절반 이상이면
+        # 매우 흐린 시간이 절반 이상
         if very_cloudy_ratio >= 0.50:
-            score = min(score, 44)
+            score = min(score, 48)
 
-        # 비 오는 시간이 30% 이상이면
+        # 비 가능성이 높은 시간이 30% 이상
         if rainy_ratio >= 0.30:
-            score = min(score, 49)
+            score = min(score, 52)
 
-        score = round(
-            max(0, min(100, score))
-        )
+        score = round(max(0, min(100, score)))
 
         grade = weather_score_grade(score)
-
         # --------------------------
         # 그날 밤 가장 좋은 시간
         # --------------------------
