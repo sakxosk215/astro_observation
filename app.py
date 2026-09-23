@@ -2643,7 +2643,6 @@ a.anchor-link {
             )
 
             st.dataframe(styled_table_df, use_container_width=True, hide_index=True)
-
     else:
 
         st.warning("오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다.")
