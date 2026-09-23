@@ -1920,8 +1920,8 @@ def build_day_weather_dataframe(weather):
     # 현재 시간부터 미래 데이터만 남김
     day_df = df[df["시간"] >= current_hour].copy()
 
-    # 현재 시간부터 정확히 12시간만 표시
-    day_df = day_df.head(12)
+    # 현재 시간부터 18시간 표시
+    day_df = day_df.head(18)
 
     day_df["관측점수"] = day_df.apply(
         hourly_weather_score,
