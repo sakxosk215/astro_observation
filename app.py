@@ -1695,20 +1695,39 @@ def build_weekly_forecast(weather, engine):
 
         # 강수확률 30% 이상인 시간 비율
         rainy_ratio = (night["강수확률"] >= 30).mean()
-        # ==================================
+               # ==================================
         # 최종 밤 점수
         # ==================================
 
-        # 평균보다 나쁜 시간대의 영향을 더 크게 반영
-        score = average_score * 0.55 + lower_score * 0.35 + best_score * 0.10
+        # 밤 전체의 평균 유효 구름량
+        night_effective_cloud = pd.concat(
+            [
+                night["전체구름"],
+                night["하층구름"],
+                night["중층구름"] * 0.95,
+                night["상층구름"] * 0.85,
+            ],
+            axis=1,
+        ).max(axis=1)
 
-        # 밤 전체에 흐린 시간이 많을수록 추가 감점
+        average_effective_cloud = night_effective_cloud.mean()
+
+        # 평균보다 나쁜 시간대의 영향을 더 크게 반영
+        score = (
+            average_score * 0.55
+            + lower_score * 0.35
+            + best_score * 0.10
+        )
+
+        # 밤 전체가 흐릴수록 추가 감점
         score -= cloudy_ratio * 25
         score -= very_cloudy_ratio * 30
         score -= rainy_ratio * 15
 
+        # 평균 구름량 자체도 추가 반영
+        score -= average_effective_cloud * 0.25
+
         # 흐린 시간이 밤의 1/3 이상이면
-        # 높은 점수가 나오기 어렵게 제한
         if cloudy_ratio >= 0.35:
             score = min(score, 74)
 
@@ -1728,7 +1747,9 @@ def build_weekly_forecast(weather, engine):
         if rainy_ratio >= 0.30:
             score = min(score, 49)
 
-        score = round(max(0, min(100, score)))
+        score = round(
+            max(0, min(100, score))
+        )
 
         grade = weather_score_grade(score)
 
@@ -1918,9 +1939,7 @@ def build_day_weather_dataframe(weather):
     )
 
     # 현재 시간 이후 데이터만 사용
-    day_df = df[
-        df["시간"] >= current_hour
-    ].copy()
+    day_df = df[df["시간"] >= current_hour].copy()
 
     # 현재 시간부터 24시간 롤링 표시
     day_df = day_df.head(24)
