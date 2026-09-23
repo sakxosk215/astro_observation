@@ -1428,7 +1428,7 @@ def cloud_cell_style(value):
 
     value = max(0, min(100, float(value)))
 
-        # 0% = 검정
+    # 0% = 검정
     # 100% = 흰색
     gray = round(255 * (value / 100))
 
@@ -1445,6 +1445,7 @@ def cloud_cell_style(value):
         f"color: {text_color}; "
         "font-weight: 600;"
     )
+
 
 def moon_observation_penalty(brightness, altitude):
 
@@ -1535,7 +1536,12 @@ def hourly_weather_score(row):
         row["전체구름"], row["하층구름"], row["중층구름"], row["상층구름"]
     )
 
-    rain_score = max(0, 100 - row["강수확률"] * 1.4)
+    # 실제 관측에 가장 방해가 되는 구름층 기준
+    effective_cloud = max(
+        row["전체구름"], row["하층구름"], row["중층구름"] * 0.95, row["상층구름"] * 0.85
+    )
+
+    rain_score = max(0, 100 - row["강수확률"] * 1.5)
 
     visibility_km = row["시정"] / 1000
 
@@ -1551,26 +1557,43 @@ def hourly_weather_score(row):
     else:
         humidity_score = max(0, 100 - (row["습도"] - 70) * 3.3)
 
+    # 구름 영향 강화
     score = (
-        cloud_score * 0.58
-        + rain_score * 0.18
-        + visibility_score * 0.10
-        + wind_score * 0.07
-        + humidity_score * 0.07
+        cloud_score * 0.70
+        + rain_score * 0.15
+        + visibility_score * 0.06
+        + wind_score * 0.04
+        + humidity_score * 0.05
     )
 
+    # 실제 강수가 있으면 강한 감점
     if row["강수량"] >= 0.1:
-        score = min(score, 35)
-
-    effective_cloud = max(
-        row["전체구름"], row["하층구름"], row["중층구름"] * 0.95, row["상층구름"] * 0.85
-    )
-
-    if effective_cloud >= 80:
         score = min(score, 30)
 
+    # 구름량에 따른 관측 점수 상한
+    if effective_cloud >= 90:
+        score = min(score, 10)
+
+    elif effective_cloud >= 80:
+        score = min(score, 18)
+
+    elif effective_cloud >= 70:
+        score = min(score, 28)
+
     elif effective_cloud >= 60:
-        score = min(score, 50)
+        score = min(score, 38)
+
+    elif effective_cloud >= 50:
+        score = min(score, 48)
+
+    elif effective_cloud >= 40:
+        score = min(score, 58)
+
+    elif effective_cloud >= 30:
+        score = min(score, 68)
+
+    elif effective_cloud >= 20:
+        score = min(score, 80)
 
     return round(max(0, min(100, score)))
 
@@ -1676,27 +1699,36 @@ def build_weekly_forecast(weather, engine):
         # 최종 밤 점수
         # ==================================
 
-        score = average_score * 0.65 + lower_score * 0.25 + best_score * 0.10
+        # 평균보다 나쁜 시간대의 영향을 더 크게 반영
+        score = average_score * 0.55 + lower_score * 0.35 + best_score * 0.10
 
-        score -= cloudy_ratio * 15
-        score -= very_cloudy_ratio * 20
-        score -= rainy_ratio * 10
+        # 밤 전체에 흐린 시간이 많을수록 추가 감점
+        score -= cloudy_ratio * 25
+        score -= very_cloudy_ratio * 30
+        score -= rainy_ratio * 15
+
+        # 흐린 시간이 밤의 1/3 이상이면
+        # 높은 점수가 나오기 어렵게 제한
+        if cloudy_ratio >= 0.35:
+            score = min(score, 74)
 
         # 밤 절반 이상이 흐리면
-        # 높은 등급이 나오지 못하게 제한
         if cloudy_ratio >= 0.50:
-            score = min(score, 79)
-
-        if very_cloudy_ratio >= 0.50:
             score = min(score, 64)
 
+        # 매우 흐린 시간이 30% 이상이면
+        if very_cloudy_ratio >= 0.30:
+            score = min(score, 54)
+
+        # 매우 흐린 시간이 절반 이상이면
+        if very_cloudy_ratio >= 0.50:
+            score = min(score, 44)
+
+        # 비 오는 시간이 30% 이상이면
         if rainy_ratio >= 0.30:
-            score = min(score, 59)
+            score = min(score, 49)
 
         score = round(max(0, min(100, score)))
-
-        grade = weather_score_grade(score)
-        score = round(score)
 
         grade = weather_score_grade(score)
 
@@ -1874,17 +1906,27 @@ def build_day_weather_dataframe(weather):
         }
     )
 
-    today_start = (
+    # 현재 시간을 정각 기준으로 맞춤
+    current_hour = (
         datetime.now(KST)
-        .replace(hour=0, minute=0, second=0, microsecond=0)
+        .replace(
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
         .replace(tzinfo=None)
     )
 
-    tomorrow_start = today_start + timedelta(days=1)
+    # 현재 시간부터 미래 데이터만 남김
+    day_df = df[df["시간"] >= current_hour].copy()
 
-    day_df = df[(df["시간"] >= today_start) & (df["시간"] <= tomorrow_start)].copy()
+    # 현재 시간부터 정확히 12시간만 표시
+    day_df = day_df.head(12)
 
-    day_df["관측점수"] = day_df.apply(hourly_weather_score, axis=1)
+    day_df["관측점수"] = day_df.apply(
+        hourly_weather_score,
+        axis=1,
+    )
 
     return day_df.reset_index(drop=True)
 
