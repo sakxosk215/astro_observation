@@ -1487,6 +1487,96 @@ def moon_observation_penalty(brightness, altitude):
     return round(penalty, 1)
 
 
+def calculate_night_moon_effect(engine, night_df):
+
+    if len(night_df) == 0:
+        return {
+            "brightness": 0,
+            "altitude": -90,
+            "penalty": 0,
+            "status": "🌑 계산 불가",
+        }
+
+    brightness_values = []
+    altitude_values = []
+    penalty_values = []
+
+    for observation_time in night_df["시간"]:
+
+        moon_info = engine.get_moon_at_time(observation_time)
+
+        brightness = float(moon_info["밝기"])
+
+        altitude = float(moon_info["고도"])
+
+        penalty = moon_observation_penalty(
+            brightness,
+            altitude,
+        )
+
+        brightness_values.append(brightness)
+
+        altitude_values.append(altitude)
+
+        penalty_values.append(penalty)
+
+    # 달 밝기는 밤 동안 거의 변하지 않지만
+    # 여러 시간의 평균을 사용
+    average_brightness = round(
+        sum(brightness_values) / len(brightness_values),
+        1,
+    )
+
+    # 밤 전체 달 감점 평균
+    average_penalty = round(
+        sum(penalty_values) / len(penalty_values),
+        1,
+    )
+
+    # 달이 떠 있는 시간
+    visible_altitudes = [altitude for altitude in altitude_values if altitude > 0]
+
+    moon_up_ratio = len(visible_altitudes) / len(altitude_values)
+
+    if visible_altitudes:
+
+        average_altitude = round(
+            sum(visible_altitudes) / len(visible_altitudes),
+            1,
+        )
+
+    else:
+
+        average_altitude = round(
+            max(altitude_values),
+            1,
+        )
+
+    # 밤 전체 달 상태
+    if moon_up_ratio == 0:
+
+        status = "🌑 밤새 지평선 아래"
+
+    elif moon_up_ratio < 0.35:
+
+        status = "🌙 잠깐 떠 있음"
+
+    elif moon_up_ratio < 0.75:
+
+        status = "🌙 일부 시간 떠 있음"
+
+    else:
+
+        status = "🌕 밤 대부분 떠 있음"
+
+    return {
+        "brightness": average_brightness,
+        "altitude": average_altitude,
+        "penalty": average_penalty,
+        "status": status,
+    }
+
+
 def moon_penalty_label(penalty):
 
     if penalty <= 0:
@@ -1777,19 +1867,21 @@ def build_weekly_forecast(weather, engine):
         best_hour_score = night.loc[best_index, "시간점수"]
 
         # ==================================
-        # 실제 최적 관측 시간의 달 상태
+        # 밤 전체의 달 영향 계산
         # ==================================
 
-        moon_info = engine.get_moon_at_time(best_time)
+        moon_effect = calculate_night_moon_effect(
+            engine,
+            night,
+        )
 
-        moon_brightness = moon_info["밝기"]
-        moon_altitude = moon_info["고도"]
+        moon_brightness = moon_effect["brightness"]
 
-        if moon_altitude < 0:
-            moon_status = "🌑 지평선 아래"
-        else:
-            moon_status = "🌙 떠 있음"
+        moon_altitude = moon_effect["altitude"]
 
+        moon_penalty = moon_effect["penalty"]
+
+        moon_status = moon_effect["status"]
         # ==================================
         # 실제 최적 관측 시간의 달 상태
         # ==================================
@@ -1832,6 +1924,7 @@ def build_weekly_forecast(weather, engine):
                 "달 밝기 %": moon_brightness,
                 "달 고도 °": moon_altitude,
                 "달 상태": moon_status,
+                "달 감점": moon_penalty,
                 "최적 시간": best_time.strftime("%H:%M"),
                 "최고 예상점수": round(best_hour_score),
                 "평균 구름 %": round(avg_effective_cloud),
@@ -2131,9 +2224,6 @@ a.anchor-link {
     # 달 밝기 / 고도에 따른 관측 감점
     # ======================================
 
-    weekly_df["달 감점"] = weekly_df.apply(
-        lambda row: moon_observation_penalty(row["달 밝기 %"], row["달 고도 °"]), axis=1
-    )
 
     weekly_df["달 영향"] = weekly_df["달 감점"].apply(moon_penalty_label)
 
