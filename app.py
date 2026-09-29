@@ -1494,6 +1494,7 @@ def calculate_night_moon_effect(engine, night_df):
             "brightness": 0,
             "altitude": -90,
             "penalty": 0,
+            "moon_up_ratio": 0,
             "status": "🌑 계산 불가",
         }
 
@@ -1520,24 +1521,18 @@ def calculate_night_moon_effect(engine, night_df):
 
         penalty_values.append(penalty)
 
-    # 달 밝기는 밤 동안 거의 변하지 않지만
-    # 여러 시간의 평균을 사용
+    # 밤 평균 달 밝기
     average_brightness = round(
         sum(brightness_values) / len(brightness_values),
         1,
     )
 
-    # 밤 전체 달 감점 평균
-    average_penalty = round(
-        sum(penalty_values) / len(penalty_values),
-        1,
-    )
-
-    # 달이 떠 있는 시간
+    # 달이 실제로 떠 있는 시간
     visible_altitudes = [altitude for altitude in altitude_values if altitude > 0]
 
     moon_up_ratio = len(visible_altitudes) / len(altitude_values)
 
+    # 달이 떠 있을 때 평균 고도
     if visible_altitudes:
 
         average_altitude = round(
@@ -1552,18 +1547,67 @@ def calculate_night_moon_effect(engine, night_df):
             1,
         )
 
+    # 기본 밤 평균 감점
+    average_penalty = sum(penalty_values) / len(penalty_values)
+
+    # 밤 중 가장 강한 달 영향
+    maximum_penalty = max(penalty_values)
+
+    # ======================================
+    # 달이 오래 떠 있으면
+    # 평균값 때문에 감점이 약해지는 현상 보정
+    # ======================================
+
+    effective_penalty = average_penalty
+
+    if moon_up_ratio >= 0.70:
+
+        effective_penalty = max(
+            effective_penalty,
+            maximum_penalty * 0.90,
+        )
+
+    elif moon_up_ratio >= 0.50:
+
+        effective_penalty = max(
+            effective_penalty,
+            maximum_penalty * 0.80,
+        )
+
+    elif moon_up_ratio >= 0.30:
+
+        effective_penalty = max(
+            effective_penalty,
+            maximum_penalty * 0.65,
+        )
+
+    elif moon_up_ratio > 0:
+
+        effective_penalty = max(
+            effective_penalty,
+            maximum_penalty * 0.40,
+        )
+
+    effective_penalty = round(
+        effective_penalty,
+        1,
+    )
+
+    # ======================================
     # 밤 전체 달 상태
+    # ======================================
+
     if moon_up_ratio == 0:
 
         status = "🌑 밤새 지평선 아래"
 
-    elif moon_up_ratio < 0.35:
+    elif moon_up_ratio < 0.30:
 
         status = "🌙 잠깐 떠 있음"
 
-    elif moon_up_ratio < 0.75:
+    elif moon_up_ratio < 0.60:
 
-        status = "🌙 일부 시간 떠 있음"
+        status = "🌙 밤 일부 떠 있음"
 
     else:
 
@@ -1572,7 +1616,11 @@ def calculate_night_moon_effect(engine, night_df):
     return {
         "brightness": average_brightness,
         "altitude": average_altitude,
-        "penalty": average_penalty,
+        "penalty": effective_penalty,
+        "moon_up_ratio": round(
+            moon_up_ratio * 100,
+            1,
+        ),
         "status": status,
     }
 
@@ -1623,29 +1671,49 @@ def cloud_observation_score(total, low, mid, high):
 def hourly_weather_score(row):
 
     cloud_score = cloud_observation_score(
-        row["전체구름"], row["하층구름"], row["중층구름"], row["상층구름"]
+        row["전체구름"],
+        row["하층구름"],
+        row["중층구름"],
+        row["상층구름"],
     )
 
     # 실제 관측에 가장 방해가 되는 구름층 기준
     effective_cloud = max(
-        row["전체구름"], row["하층구름"], row["중층구름"] * 0.95, row["상층구름"] * 0.85
+
+        row["전체구름"],
+        row["하층구름"],
+        row["중층구름"] * 0.95,
+        row["상층구름"] * 0.85,
     )
 
-    rain_score = max(0, 100 - row["강수확률"] * 1.5)
+    rain_score = max(
+        0,
+        100 - row["강수확률"] * 1.5,
+    )
+
 
     visibility_km = row["시정"] / 1000
 
-    visibility_score = min(100, (visibility_km / 20) * 100)
+    visibility_score = min(
+        100,
+        (visibility_km / 20) * 100,
+    )
 
     if row["풍속"] <= 10:
         wind_score = 100
     else:
-        wind_score = max(0, 100 - (row["풍속"] - 10) * 4)
+        wind_score = max(
+            0,
+            100 - (row["풍속"] - 10) * 4,
+        )
 
     if row["습도"] <= 70:
         humidity_score = 100
     else:
-        humidity_score = max(0, 100 - (row["습도"] - 70) * 3.3)
+        humidity_score = max(
+            0,
+            100 - (row["습도"] - 70) * 3.3,
+        )
 
     # 구름 영향 강화
     score = (
@@ -1881,6 +1949,8 @@ def build_weekly_forecast(weather, engine):
 
         moon_penalty = moon_effect["penalty"]
 
+        moon_up_ratio = moon_effect["moon_up_ratio"]
+
         moon_status = moon_effect["status"]
         # ==================================
         # 실제 최적 관측 시간의 달 상태
@@ -1925,6 +1995,7 @@ def build_weekly_forecast(weather, engine):
                 "달 고도 °": moon_altitude,
                 "달 상태": moon_status,
                 "달 감점": moon_penalty,
+                "달 떠있는 시간 %": moon_up_ratio,
                 "최적 시간": best_time.strftime("%H:%M"),
                 "최고 예상점수": round(best_hour_score),
                 "평균 구름 %": round(avg_effective_cloud),
@@ -2224,16 +2295,30 @@ a.anchor-link {
     # 달 밝기 / 고도에 따른 관측 감점
     # ======================================
 
-
     weekly_df["달 영향"] = weekly_df["달 감점"].apply(moon_penalty_label)
 
-    # Open-Meteo 날씨 점수에 달 영향만 적용
-    weekly_df["관측 점수"] = weekly_df["관측 점수"] - weekly_df["달 감점"]
+    # ======================================
+    # 달 영향 적용
+    # ======================================
 
-    weekly_df["관측 점수"] = weekly_df["관측 점수"].clip(0, 100).round().astype(int)
+    # 기본 달 감점
+       # 달 밝기와 달이 떠 있는 시간을 이용한
+    # 최종 점수 상한 적용
+    weekly_df["관측 점수"] = weekly_df.apply(
+        apply_moon_score_cap,
+        axis=1,
+    )
 
-    weekly_df["등급"] = weekly_df["관측 점수"].apply(weather_score_grade)
+    weekly_df["관측 점수"] = (
+        weekly_df["관측 점수"]
+        .clip(0, 100)
+        .round()
+        .astype(int)
+    )
 
+    weekly_df["등급"] = weekly_df[
+        "관측 점수"
+    ].apply(weather_score_grade)
     # ======================================
     # 7일 관측 요약 카드
     # ======================================
