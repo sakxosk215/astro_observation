@@ -2306,12 +2306,19 @@ def find_best_observation_window(df):
 
 
 def build_half_hour_weather_timeline(night_df):
-    """시간별 날씨 점수를 30분 간격으로 보간해 천체별 최적시간 계산에 사용한다."""
+    # 시간별 날씨 자료를 30분 간격으로 보간
+
     if len(night_df) == 0:
         return []
 
     score_df = (
-        night_df[["시간", "관측점수"]]
+        night_df[
+            [
+                "시간",
+                "관측점수",
+                "유효구름량",
+            ]
+        ]
         .set_index("시간")
         .sort_index()
         .resample("30min")
@@ -2323,6 +2330,7 @@ def build_half_hour_weather_timeline(night_df):
         {
             "time": row["시간"].to_pydatetime(),
             "score": float(row["관측점수"]),
+            "cloud": float(row["유효구름량"]),
         }
         for _, row in score_df.iterrows()
     ]
