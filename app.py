@@ -2271,7 +2271,7 @@ def build_day_weather_dataframe(weather):
     day_df = df[df["시간"] >= current_hour].copy()
 
     # 현재 시간부터 24시간 롤링 표시
-    day_df = day_df.head(24)
+    day_df = day_df.head(48)
 
     day_df["관측점수"] = day_df.apply(
         hourly_weather_score,
