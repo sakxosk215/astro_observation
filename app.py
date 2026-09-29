@@ -3745,15 +3745,12 @@ a.anchor-link {
     # 메시에 천체 추가
     for _, row in tonight_messier.iterrows():
 
-            # 추천 관측시간이 없거나
-            # 추천 기준 점수 미만이면 제외
-            if (
-                row["추천 관측시간"] == "-"
-                or int(row["오늘 최고점수"]) < 65
-            ):
-                continue
+        # 추천 관측시간이 없거나
+        # 추천 기준 점수 미만이면 제외
+        if row["추천 관측시간"] == "-" or int(row["오늘 최고점수"]) < 65:
+            continue
 
-            recommended_objects.append(
+        recommended_objects.append(
             {
                 "분류": "메시에",
                 "이름": (f"{row['메시에']} " f"{row['이름']}"),
@@ -3768,31 +3765,17 @@ a.anchor-link {
             }
         )
 
-        # 행성 추가
+    # 행성 추가
     tonight_planets = pd.DataFrame()
 
-    if (
-        not planet_best_df.empty
-        and "오늘 최고점수"
-        in planet_best_df.columns
-    ):
-        tonight_planets = (
-            planet_best_df[
-                planet_best_df[
-                    "오늘 최고점수"
-                ]
-                > 0
-            ].copy()
-        )
+    if not planet_best_df.empty and "오늘 최고점수" in planet_best_df.columns:
+        tonight_planets = planet_best_df[planet_best_df["오늘 최고점수"] > 0].copy()
 
     for _, row in tonight_planets.iterrows():
 
         # 추천 관측시간이 없거나
         # 65점 미만이면 추천 대상에서 제외
-        if (
-            row["추천 관측시간"] == "-"
-            or int(row["오늘 최고점수"]) < 65
-        ):
+        if row["추천 관측시간"] == "-" or int(row["오늘 최고점수"]) < 65:
             continue
 
         recommended_objects.append(
@@ -3800,19 +3783,11 @@ a.anchor-link {
                 "분류": "행성",
                 "이름": row["행성"],
                 "종류": "행성",
-                "추천 관측시간": (
-                    row["추천 관측시간"]
-                ),
-                "최적 시각": (
-                    row["최적 시각"]
-                ),
-                "최적 고도 °": (
-                    row["최적 고도 °"]
-                ),
+                "추천 관측시간": (row["추천 관측시간"]),
+                "최적 시각": (row["최적 시각"]),
+                "최적 고도 °": (row["최적 고도 °"]),
                 "방향": row["방향"],
-                "오늘 최고점수": int(
-                    row["오늘 최고점수"]
-                ),
+                "오늘 최고점수": int(row["오늘 최고점수"]),
                 "추천": row["추천"],
                 "겉보기등급": None,
             }
@@ -3852,6 +3827,44 @@ a.anchor-link {
                 st.markdown(f"### {rank_icons[index]} " f"{title}")
 
                 st.markdown(f"**{item['추천']} · " f"{item['오늘 최고점수']}점**")
+
+                # ==================================
+                # 추천 이유
+                # ==================================
+
+                reason_parts = []
+
+                best_altitude = float(item["최적 고도 °"])
+
+                best_score = int(item["오늘 최고점수"])
+
+                # 고도
+                if best_altitude >= 60:
+                    reason_parts.append("높은 고도")
+
+                elif best_altitude >= 40:
+                    reason_parts.append("양호한 고도")
+
+                # 종합 관측 조건
+                if best_score >= 90:
+                    reason_parts.append("매우 좋은 종합 조건")
+
+                elif best_score >= 80:
+                    reason_parts.append("좋은 종합 조건")
+
+                # 메시에 천체의 밝기
+                if item["분류"] == "메시에" and item["겉보기등급"] is not None:
+                    magnitude = float(item["겉보기등급"])
+
+                    if magnitude <= 4:
+                        reason_parts.append("밝은 천체")
+
+                # 목성·토성
+                if item["분류"] == "행성":
+                    reason_parts.append("행성 관측에 유리")
+
+                if reason_parts:
+                    st.write("💡 추천 이유 : " + " · ".join(reason_parts))
 
                 st.write(f"🔭 종류 : " f"{item['종류']}")
 
