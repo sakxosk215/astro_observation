@@ -3743,7 +3743,7 @@ a.anchor-link {
     recommended_objects = []
 
     # 메시에 천체 추가
-    for _, row in tonight_planets.iterrows():
+    for _, row in tonight_messier.iterrows():
 
             # 추천 관측시간이 없거나
             # 추천 기준 점수 미만이면 제외
@@ -3768,27 +3768,55 @@ a.anchor-link {
             }
         )
 
-    # 행성 추가
-    if not planet_best_df.empty and "오늘 최고점수" in planet_best_df.columns:
+        # 행성 추가
+    tonight_planets = pd.DataFrame()
 
-        tonight_planets = planet_best_df[planet_best_df["오늘 최고점수"] > 0].copy()
+    if (
+        not planet_best_df.empty
+        and "오늘 최고점수"
+        in planet_best_df.columns
+    ):
+        tonight_planets = (
+            planet_best_df[
+                planet_best_df[
+                    "오늘 최고점수"
+                ]
+                > 0
+            ].copy()
+        )
 
-        for _, row in tonight_planets.iterrows():
+    for _, row in tonight_planets.iterrows():
 
-            recommended_objects.append(
-                {
-                    "분류": "행성",
-                    "이름": row["행성"],
-                    "종류": "행성",
-                    "추천 관측시간": (row["추천 관측시간"]),
-                    "최적 시각": (row["최적 시각"]),
-                    "최적 고도 °": (row["최적 고도 °"]),
-                    "방향": row["방향"],
-                    "오늘 최고점수": int(row["오늘 최고점수"]),
-                    "추천": row["추천"],
-                    "겉보기등급": None,
-                }
-            )
+        # 추천 관측시간이 없거나
+        # 65점 미만이면 추천 대상에서 제외
+        if (
+            row["추천 관측시간"] == "-"
+            or int(row["오늘 최고점수"]) < 65
+        ):
+            continue
+
+        recommended_objects.append(
+            {
+                "분류": "행성",
+                "이름": row["행성"],
+                "종류": "행성",
+                "추천 관측시간": (
+                    row["추천 관측시간"]
+                ),
+                "최적 시각": (
+                    row["최적 시각"]
+                ),
+                "최적 고도 °": (
+                    row["최적 고도 °"]
+                ),
+                "방향": row["방향"],
+                "오늘 최고점수": int(
+                    row["오늘 최고점수"]
+                ),
+                "추천": row["추천"],
+                "겉보기등급": None,
+            }
+        )
 
     # ======================================
     # 점수순 TOP 3
