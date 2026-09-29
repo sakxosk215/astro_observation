@@ -1924,13 +1924,22 @@ def build_weekly_forecast(weather, engine):
         # 그날 밤 가장 좋은 시간
         # --------------------------
 
-        night["시간점수"] = night.apply(hourly_weather_score, axis=1)
+        night["시간점수"] = night.apply(
+            hourly_weather_score,
+            axis=1,
+        )
 
         best_index = night["시간점수"].idxmax()
 
-        best_time = night.loc[best_index, "시간"]
+        best_time = night.loc[
+            best_index,
+            "시간",
+        ]
 
-        best_hour_score = night.loc[best_index, "시간점수"]
+        best_hour_score = night.loc[
+            best_index,
+            "시간점수",
+        ]
 
         # ==================================
         # 밤 전체의 달 영향 계산
@@ -1950,6 +1959,153 @@ def build_weekly_forecast(weather, engine):
         moon_up_ratio = moon_effect["moon_up_ratio"]
 
         moon_status = moon_effect["status"]
+
+        # ==================================
+        # 날씨 + 달을 고려한 최적 관측 구간
+        # 30분 단위 계산
+        # ==================================
+
+        night_for_timeline = night.copy()
+
+        night_for_timeline["관측점수"] = night_for_timeline["시간점수"]
+
+        half_hour_timeline = build_half_hour_weather_timeline(night_for_timeline)
+
+        observation_hours = []
+
+        for hour_info in half_hour_timeline:
+
+            observation_time = hour_info["time"]
+
+            weather_hour_score = float(hour_info["score"])
+
+            # 해당 30분 시점의 달 상태
+            hour_moon_info = engine.get_moon_at_time(observation_time)
+
+            hour_moon_brightness = float(hour_moon_info["밝기"])
+
+            hour_moon_altitude = float(hour_moon_info["고도"])
+
+            # 희미한 천체 관측 기준
+            # 달 밝기 25% 이상이며
+            # 지평선 위에 있으면 추천 구간에서 제외
+            bright_moon_up = hour_moon_brightness >= 25 and hour_moon_altitude > 0
+
+            # 날씨 점수 65점 이상이며
+            # 밝은 달이 없어야 추천
+            usable = weather_hour_score >= 65 and not bright_moon_up
+
+            observation_hours.append(
+                {
+                    "time": observation_time,
+                    "score": weather_hour_score,
+                    "usable": usable,
+                }
+            )
+
+        # ==================================
+        # 30분 단위 연속 관측 가능 구간 찾기
+        # ==================================
+
+        observation_ranges = []
+        current_range = []
+
+        for hour_info in observation_hours:
+
+            if hour_info["usable"]:
+
+                if current_range:
+
+                    previous_time = current_range[-1]["time"]
+
+                    time_gap = hour_info["time"] - previous_time
+
+                    # 30분 간격이 끊겼으면
+                    # 새로운 구간으로 분리
+                    if time_gap > timedelta(minutes=35):
+
+                        observation_ranges.append(current_range)
+
+                        current_range = []
+
+                current_range.append(hour_info)
+
+            else:
+
+                if current_range:
+
+                    observation_ranges.append(current_range)
+
+                    current_range = []
+
+        if current_range:
+
+            observation_ranges.append(current_range)
+
+        # ==================================
+        # 가장 좋은 연속 구간 선택
+        # ==================================
+
+        if observation_ranges:
+
+            # 가장 긴 구간 우선
+            # 길이가 같으면 평균 날씨 점수가 높은 구간
+            best_range = max(
+                observation_ranges,
+                key=lambda current: (
+                    len(current),
+                    sum(item["score"] for item in current) / len(current),
+                ),
+            )
+
+            best_range_start = best_range[0]["time"]
+
+            # 마지막 관측 가능 시점에서
+            # 30분 뒤까지를 구간 끝으로 설정
+            best_range_end = best_range[-1]["time"] + timedelta(minutes=30)
+
+            # 천문박명 시작 시간과
+            # 시간대 형식을 동일하게 맞춤
+            astro_end_compare = pd.Timestamp(astro_end)
+
+            if astro_end_compare.tzinfo is not None:
+                astro_end_compare = astro_end_compare.tz_localize(None)
+
+            astro_end_compare = astro_end_compare.to_pydatetime()
+
+            # 마지막 날씨 데이터까지 계속
+            # 관측 가능했다면 실제 천문박명 시작까지 연장
+            if (
+                half_hour_timeline
+                and best_range[-1]["time"] == half_hour_timeline[-1]["time"]
+                and best_range_end < astro_end_compare
+            ):
+                best_range_end = astro_end_compare
+
+            # 어두운 시간이 끝난 뒤까지
+            # 추천하지 않도록 제한
+            if best_range_end > astro_end_compare:
+                best_range_end = astro_end_compare
+
+            # 같은 날짜면 시간만 표시
+            if best_range_start.date() == best_range_end.date():
+                best_time_range = (
+                    f"{best_range_start.strftime('%H:%M')}"
+                    f" ~ "
+                    f"{best_range_end.strftime('%H:%M')}"
+                )
+
+            # 자정을 넘으면 날짜까지 표시
+            else:
+                best_time_range = (
+                    f"{best_range_start.strftime('%m/%d %H:%M')}"
+                    f" ~ "
+                    f"{best_range_end.strftime('%m/%d %H:%M')}"
+                )
+
+        else:
+
+            best_time_range = "추천 구간 없음"
         # ==================================
         # 실제 최적 관측 시간의 달 상태
         # ==================================
@@ -1994,7 +2150,7 @@ def build_weekly_forecast(weather, engine):
                 "달 상태": moon_status,
                 "달 감점": moon_penalty,
                 "달 떠있는 시간 %": moon_up_ratio,
-                "최적 시간": best_time.strftime("%H:%M"),
+                "최적 시간": best_time_range,
                 "최고 예상점수": round(best_hour_score),
                 "평균 구름 %": round(avg_effective_cloud),
                 "전체 구름 %": round(avg_total_cloud),
@@ -2182,6 +2338,10 @@ try:
 
     engine = AstronomyEngine(latitude, longitude)
 
+    engine = AstronomyEngine(latitude, longitude)
+
+    st.subheader(f"📍 현재 관측지: {location_name}")
+
     st.subheader(f"📍 현재 관측지: {location_name}")
     st.subheader("🌦️ 현재 날씨")
 
@@ -2289,6 +2449,7 @@ a.anchor-link {
 
     weekly_df = build_weekly_forecast(weather, engine)
 
+    
     # ======================================
     # 달 밝기 / 고도에 따른 관측 감점
     # ======================================
@@ -2311,19 +2472,50 @@ a.anchor-link {
         brightness = row["달 밝기 %"]
         moon_up_ratio = row["달 떠있는 시간 %"]
 
-        # 밝은 달이 밤 대부분 떠 있음
+        # ======================================
+        # 매우 밝은 달
+        # ======================================
+
+        # 밝기 70% 이상 + 밤 대부분 떠 있음
         if brightness >= 70 and moon_up_ratio >= 60:
             score = min(score, 55)
 
-        # 밝은 달이 밤 절반 정도 떠 있음
+        # 밝기 60% 이상 + 밤 절반 가까이 떠 있음
         elif brightness >= 60 and moon_up_ratio >= 40:
             score = min(score, 60)
 
-        # 밝은 달이 밤 일부 떠 있음
+        # 밝기 60% 이상 + 밤 일부 떠 있음
         elif brightness >= 60 and moon_up_ratio >= 25:
             score = min(score, 65)
 
-        # 기존 달 감점 기준
+        # ======================================
+        # 중간 밝기의 달
+        # ======================================
+
+        # 밝기 40% 이상 + 오래 떠 있음
+        elif brightness >= 40 and moon_up_ratio >= 40:
+            score = min(score, 72)
+
+        # 밝기 40% 이상 + 밤 일부 떠 있음
+        elif brightness >= 40 and moon_up_ratio >= 25:
+            score = min(score, 78)
+
+        # ======================================
+        # 비교적 약한 달
+        # ======================================
+
+        # 밝기 25% 이상 + 오래 떠 있음
+        elif brightness >= 25 and moon_up_ratio >= 40:
+            score = min(score, 82)
+
+        # 밝기 25% 이상 + 밤 일부 떠 있음
+        elif brightness >= 25 and moon_up_ratio >= 25:
+            score = min(score, 88)
+
+        # ======================================
+        # 기존 달 감점 보조 기준
+        # ======================================
+
         elif penalty > 15:
             score = min(score, 60)
 
@@ -2504,7 +2696,7 @@ a.anchor-link {
         "관측 점수",
         "등급",
         "달 영향",
-        "달 떠있는 시간 %", 
+        "달 떠있는 시간 %",
         "달 감점",
         "달 밝기 %",
         "달 고도 °",
@@ -3538,6 +3730,48 @@ a.anchor-link {
         )
 
     tonight_messier = messier_best_df[messier_best_df["오늘 최고점수"] > 0].copy()
+
+    # ======================================
+    # 오늘 밤 추천 관측 대상 TOP 3
+    # ======================================
+
+    st.subheader("🌌 오늘 밤 추천 관측 대상")
+
+    if len(tonight_messier) > 0:
+
+        recommended_messier = tonight_messier.head(3).reset_index(drop=True)
+
+        rank_icons = [
+            "🥇",
+            "🥈",
+            "🥉",
+        ]
+
+        for index, row in recommended_messier.iterrows():
+
+            with st.container(border=True):
+
+                st.markdown(
+                    f"### {rank_icons[index]} " f"{row['메시에']} {row['이름']}"
+                )
+
+                st.markdown(f"**{row['추천']} · " f"{int(row['오늘 최고점수'])}점**")
+
+                st.write(f"🔭 종류 : {row['종류']}")
+
+                st.write(f"⏰ 추천 시간 : " f"{row['추천 관측시간']}")
+
+                st.write(f"✨ 최적 시각 : " f"{row['최적 시각']}")
+
+                st.write(f"📐 최적 고도 : " f"{row['최적 고도 °']}°")
+
+                st.write(f"🧭 방향 : " f"{row['방향']}")
+
+                st.write(f"👁️ 겉보기등급 : " f"{row['등급']}")
+
+    else:
+
+        st.info("오늘 밤 추천할 수 있는 " "메시에 천체가 없습니다.")
 
     with st.expander("⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"):
 

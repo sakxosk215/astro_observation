@@ -214,8 +214,15 @@ class AstronomyEngine:
 
     def get_astronomical_night(self, date_str):
 
-        local_noon = datetime.strptime(date_str, "%Y-%m-%d").replace(
-            hour=12, minute=0, second=0, microsecond=0, tzinfo=KST
+        local_noon = datetime.strptime(
+            date_str,
+            "%Y-%m-%d",
+        ).replace(
+            hour=12,
+            minute=0,
+            second=0,
+            microsecond=0,
+            tzinfo=KST,
         )
 
         next_noon = local_noon + timedelta(days=1)
@@ -224,16 +231,26 @@ class AstronomyEngine:
 
         t1 = self.ts.from_datetime(next_noon)
 
-        twilight_function = almanac.dark_twilight_day(self.eph, self.topos)
+        twilight_function = almanac.dark_twilight_day(
+            self.eph,
+            self.topos,
+        )
 
-        times, events = almanac.find_discrete(t0, t1, twilight_function)
+        times, events = almanac.find_discrete(
+            t0,
+            t1,
+            twilight_function,
+        )
 
         previous_state = int(twilight_function(t0).item())
 
         astronomical_night_start = None
         astronomical_night_end = None
 
-        for t, event in zip(times, events):
+        for t, event in zip(
+            times,
+            events,
+        ):
 
             new_state = int(event)
 
@@ -247,7 +264,44 @@ class AstronomyEngine:
 
             previous_state = new_state
 
-        return (astronomical_night_start, astronomical_night_end)
+        return (
+            astronomical_night_start,
+            astronomical_night_end,
+        )
+
+    def get_messier_at_time(
+        self,
+        messier_item,
+        target_datetime,
+    ):
+        # 특정 시각의 메시에 천체 고도와 방위각 계산
+
+        if target_datetime.tzinfo is None:
+            target_datetime = target_datetime.replace(tzinfo=KST)
+
+        ra_hours = parse_ra_hours(messier_item["RA"])
+
+        dec_degrees = parse_dec_degrees(messier_item["Dec"])
+
+        target = Star(
+            ra_hours=ra_hours,
+            dec_degrees=dec_degrees,
+        )
+
+        t = self.ts.from_datetime(target_datetime)
+
+        apparent = self.observer.at(t).observe(target).apparent()
+
+        altitude, azimuth, _ = apparent.altaz()
+
+        alt = altitude.degrees
+        az = azimuth.degrees
+
+        return {
+            "고도": round(alt, 1),
+            "방위각": round(az, 1),
+            "방향": azimuth_to_direction(az),
+        }
 
     def get_planets(self):
         now = datetime.now(KST)
@@ -374,7 +428,10 @@ class AstronomyEngine:
                 alt = altitude.degrees
                 az = azimuth.degrees
 
-                observable = alt >= 15 and sun_alt <= -6
+             # 천문박명(-18) 이후의 완전히 어두운 시간만
+             # 메시에 관측 추천 시간으로 사용
+
+                observable = alt >= 15 and sun_alt <= -18
 
                 if alt < 0:
                     status = "❌ 지평선 아래"
