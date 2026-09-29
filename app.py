@@ -3079,6 +3079,7 @@ a.anchor-link {
         # 시간별 상세 정보
         # ======================================
 
+
         @st.fragment(run_every="1m")
         def show_hourly_weather_table():
 
@@ -3090,24 +3091,14 @@ a.anchor-link {
 
                 table_df = current_day_weather_df.copy()
 
-                def show_hourly_weather_table():
-
-                    # 현재 시각부터 앞으로 48시간을
-                    # 자동으로 다시 계산
-                    current_day_weather_df = build_day_weather_dataframe(weather)
-
-                    with st.expander("📊 시간별 상세 정보"):
-
-                        table_df = current_day_weather_df.copy()
-
                 # ======================================
                 # 시간별 이슬점 / 이슬 위험 계산
                 # ======================================
 
                 dew_results = table_df.apply(
                     lambda row: calculate_dew_risk(
-                        row["기온"],
-                        row["습도"],
+                        float(row["기온"]),
+                        float(row["습도"]),
                     ),
                     axis=1,
                 )
@@ -3117,154 +3108,10 @@ a.anchor-link {
                 )
 
                 table_df["이슬 위험"] = dew_results.apply(
-                    lambda result: (f"{result['icon']} " f"{result['advice']}")
-                )
-
-                # 현재 시간을 정각 기준으로 계산
-
-                current_hour = (
-                    datetime.now(KST)
-                    .replace(
-                        minute=0,
-                        second=0,
-                        microsecond=0,
+                    lambda result: (
+                        f"{result['icon']} "
+                        f"{result['advice']}"
                     )
-                    .replace(tzinfo=None)
-                )
-
-                # ======================================
-                # 7일 예보의 모든 천문 관측 밤 구간
-                # ======================================
-
-                night_intervals = []
-
-                for _, forecast_row in weekly_df.iterrows():
-
-                    forecast_date = pd.to_datetime(forecast_row["날짜"]).date()
-
-                    astro_start_text = str(forecast_row["천문박명 종료"])
-
-                    astro_end_text = str(forecast_row["천문박명 시작"])
-
-                    astro_start_datetime = pd.to_datetime(
-                        f"{forecast_date} {astro_start_text}"
-                    )
-
-                    astro_end_datetime = pd.to_datetime(
-                        f"{forecast_date} {astro_end_text}"
-                    )
-
-                    # 천문박명 시작은 다음 날 새벽
-                    if astro_end_datetime <= astro_start_datetime:
-                        astro_end_datetime += timedelta(days=1)
-
-                    night_intervals.append(
-                        (
-                            astro_start_datetime,
-                            astro_end_datetime,
-                        )
-                    )
-
-                    # 시간 표시 함수
-
-                def format_hourly_time(time):
-
-                    markers = []
-
-                    # 현재 시간
-                    if time == current_hour:
-                        markers.append("➡")
-
-                    # 7일 예보의 천문박명 구간 중
-                    # 하나라도 포함되면 밤 표시
-                    is_astronomical_night = any(
-                        start <= time <= end for start, end in night_intervals
-                    )
-
-                    if is_astronomical_night:
-                        markers.append("🌙")
-
-                    time_text = time.strftime("%m/%d %H:%M")
-
-                    if markers:
-                        return f"{' '.join(markers)} " f"{time_text}"
-
-                    return time_text
-
-                table_df["시간"] = table_df["시간"].apply(format_hourly_time)
-
-                # 시정 m → km
-                table_df["시정"] = (table_df["시정"] / 1000).round(1)
-
-                table_df = table_df[
-                    [
-                        "시간",
-                        "관측점수",
-                        "구름량",
-                        "하층구름",
-                        "중층구름",
-                        "상층구름",
-                        "강수확률",
-                        "습도",
-                        "풍속",
-                        "시정",
-                    ]
-                ].rename(
-                    columns={
-                        "관측점수": "관측 점수",
-                        "구름량": "전체 구름 %",
-                        "하층구름": "하층 %",
-                        "중층구름": "중층 %",
-                        "상층구름": "상층 %",
-                        "강수확률": "강수확률 %",
-                        "습도": "습도 %",
-                        "풍속": "풍속 km/h",
-                        "시정": "시정 km",
-                    }
-                )
-
-                # 밤 시간대 행 강조
-                def highlight_night_row(row):
-
-                    if "🌙" in str(row["시간"]):
-                        return [
-                            (
-                                "background-color: #28364f; "
-                                "color: white; "
-                                "font-weight: 700; "
-                                "border-top: 1px solid #52698f; "
-                                "border-bottom: 1px solid #52698f;"
-                            )
-                            for _ in row
-                        ]
-
-                    return ["" for _ in row]
-
-                styled_table_df = table_df.style.map(
-                    cloud_cell_style,
-                    subset=[
-                        "전체 구름 %",
-                        "하층 %",
-                        "중층 %",
-                        "상층 %",
-                    ],
-                ).apply(
-                    highlight_night_row,
-                    axis=1,
-                    subset=[
-                        "시간",
-                        "관측 점수",
-                        "강수확률 %",
-                        "습도 %",
-                        "풍속 km/h",
-                        "시정 km",
-                    ],
-                )
-
-                st.dataframe(
-                    styled_table_df,
-                    use_container_width=True,
-                    hide_index=True,
                 )
 
                 # 현재 시간을 정각 기준으로 계산
@@ -3286,11 +3133,17 @@ a.anchor-link {
 
                 for _, forecast_row in weekly_df.iterrows():
 
-                    forecast_date = pd.to_datetime(forecast_row["날짜"]).date()
+                    forecast_date = pd.to_datetime(
+                        forecast_row["날짜"]
+                    ).date()
 
-                    astro_start_text = str(forecast_row["천문박명 종료"])
+                    astro_start_text = str(
+                        forecast_row["천문박명 종료"]
+                    )
 
-                    astro_end_text = str(forecast_row["천문박명 시작"])
+                    astro_end_text = str(
+                        forecast_row["천문박명 시작"]
+                    )
 
                     astro_start_datetime = pd.to_datetime(
                         f"{forecast_date} {astro_start_text}"
@@ -3311,8 +3164,7 @@ a.anchor-link {
                         )
                     )
 
-                    # 시간 표시 함수
-
+                # 시간 표시 함수
                 def format_hourly_time(time):
 
                     markers = []
@@ -3321,10 +3173,10 @@ a.anchor-link {
                     if time == current_hour:
                         markers.append("➡")
 
-                    # 7일 예보의 천문박명 구간 중
-                    # 하나라도 포함되면 밤 표시
+                    # 천문 관측 밤 구간
                     is_astronomical_night = any(
-                        start <= time <= end for start, end in night_intervals
+                        start <= time <= end
+                        for start, end in night_intervals
                     )
 
                     if is_astronomical_night:
@@ -3333,14 +3185,18 @@ a.anchor-link {
                     time_text = time.strftime("%m/%d %H:%M")
 
                     if markers:
-                        return f"{' '.join(markers)} " f"{time_text}"
+                        return f"{' '.join(markers)} {time_text}"
 
                     return time_text
 
-                table_df["시간"] = table_df["시간"].apply(format_hourly_time)
+                table_df["시간"] = table_df["시간"].apply(
+                    format_hourly_time
+                )
 
                 # 시정 m → km
-                table_df["시정"] = (table_df["시정"] / 1000).round(1)
+                table_df["시정"] = (
+                    table_df["시정"] / 1000
+                ).round(1)
 
                 table_df = table_df[
                     [
@@ -3366,7 +3222,7 @@ a.anchor-link {
                         "상층구름": "상층 %",
                         "강수확률": "강수확률 %",
                         "습도": "습도 %",
-                        "이슬점": "이슬점°C",
+                        "이슬점": "이슬점 °C",
                         "풍속": "풍속 km/h",
                         "시정": "시정 km",
                     }
@@ -3405,6 +3261,8 @@ a.anchor-link {
                         "관측 점수",
                         "강수확률 %",
                         "습도 %",
+                        "이슬점 °C",
+                        "이슬 위험",
                         "풍속 km/h",
                         "시정 km",
                     ],
