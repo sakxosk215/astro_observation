@@ -3079,7 +3079,6 @@ a.anchor-link {
         # 시간별 상세 정보
         # ======================================
 
-
         @st.fragment(run_every="1m")
         def show_hourly_weather_table():
 
@@ -3108,10 +3107,7 @@ a.anchor-link {
                 )
 
                 table_df["이슬 위험"] = dew_results.apply(
-                    lambda result: (
-                        f"{result['icon']} "
-                        f"{result['advice']}"
-                    )
+                    lambda result: (f"{result['icon']} " f"{result['advice']}")
                 )
 
                 # 현재 시간을 정각 기준으로 계산
@@ -3133,17 +3129,11 @@ a.anchor-link {
 
                 for _, forecast_row in weekly_df.iterrows():
 
-                    forecast_date = pd.to_datetime(
-                        forecast_row["날짜"]
-                    ).date()
+                    forecast_date = pd.to_datetime(forecast_row["날짜"]).date()
 
-                    astro_start_text = str(
-                        forecast_row["천문박명 종료"]
-                    )
+                    astro_start_text = str(forecast_row["천문박명 종료"])
 
-                    astro_end_text = str(
-                        forecast_row["천문박명 시작"]
-                    )
+                    astro_end_text = str(forecast_row["천문박명 시작"])
 
                     astro_start_datetime = pd.to_datetime(
                         f"{forecast_date} {astro_start_text}"
@@ -3175,8 +3165,7 @@ a.anchor-link {
 
                     # 천문 관측 밤 구간
                     is_astronomical_night = any(
-                        start <= time <= end
-                        for start, end in night_intervals
+                        start <= time <= end for start, end in night_intervals
                     )
 
                     if is_astronomical_night:
@@ -3189,14 +3178,10 @@ a.anchor-link {
 
                     return time_text
 
-                table_df["시간"] = table_df["시간"].apply(
-                    format_hourly_time
-                )
+                table_df["시간"] = table_df["시간"].apply(format_hourly_time)
 
                 # 시정 m → km
-                table_df["시정"] = (
-                    table_df["시정"] / 1000
-                ).round(1)
+                table_df["시정"] = (table_df["시정"] / 1000).round(1)
 
                 table_df = table_df[
                     [
@@ -3769,73 +3754,6 @@ a.anchor-link {
     st.markdown(messier_summary_html, unsafe_allow_html=True)
 
     # ======================================
-    # 현재 추천 TOP 3
-    # ======================================
-
-    st.subheader("🏆 현재 추천 TOP 3")
-
-    messier_medals = ["🥇", "🥈", "🥉"]
-
-    current_top3 = observable_df.head(3)
-
-    if len(current_top3) > 0:
-
-        messier_top3_html = '<div class="messier-top3-grid">'
-
-        for i in range(len(current_top3)):
-
-            row = current_top3.iloc[i]
-
-            object_name = row["메시에"]
-
-            if row["이름"]:
-                object_name += f'<br>{row["이름"]}'
-
-            messier_top3_html += (
-                '<div class="messier-top3-card">'
-                f'<div class="messier-rank">{messier_medals[i]}</div>'
-                f'<div class="messier-name">{object_name}</div>'
-                f'<div class="messier-score">{row["추천점수"]}점</div>'
-                "</div>"
-            )
-
-        messier_top3_html += "</div>"
-
-        st.markdown(messier_top3_html, unsafe_allow_html=True)
-
-    else:
-
-        st.warning("현재 관측 가능한 메시에 천체가 없습니다.")
-
-    # ======================================
-    # 오늘의 TOP 10
-    # ======================================
-
-    with st.expander("🏆 오늘의 메시에 추천 TOP 10"):
-
-        if len(observable_df) > 0:
-
-            top10 = observable_df.head(10)[
-                [
-                    "메시에",
-                    "이름",
-                    "종류",
-                    "등급",
-                    "고도 °",
-                    "방향",
-                    "달과 각거리 °",
-                    "추천점수",
-                    "추천",
-                ]
-            ]
-
-            st.dataframe(top10, use_container_width=True, hide_index=True)
-
-        else:
-
-            st.warning("현재 시각에는 관측 추천 가능한 " "메시에 천체가 없습니다.")
-
-    # ======================================
     # 오늘 밤 최적 관측시간
     # ======================================
 
@@ -4149,223 +4067,43 @@ a.anchor-link {
     # 전체 목록
     # ======================================
 
-    with st.expander("🔎 M1 ~ M110 전체 목록"):
+    with st.expander(
+        "🔎 M1 ~ M110 전체 목록",
+        expanded=False,
+    ):
+
+        filter_col1, filter_col2 = st.columns(2)
+
+        only_observable = filter_col1.checkbox(
+            "현재 관측 가능한 천체만",
+            value=True,
+        )
+
+        type_options = ["전체"] + sorted(messier_df["종류"].dropna().unique().tolist())
+
+        selected_type = filter_col2.selectbox(
+            "천체 종류",
+            type_options,
+        )
+
+        display_messier = messier_df.copy()
+
+        if only_observable:
+            display_messier = display_messier[display_messier["추천점수"] > 0]
+
+        if selected_type != "전체":
+            display_messier = display_messier[display_messier["종류"] == selected_type]
+
+        st.dataframe(
+            display_messier,
+            use_container_width=True,
+            hide_index=True,
+        )
 
         st.caption(
             "※ 메시에 추천점수는 동아리용 경험식이며 "
             "실제 관측 환경에 따라 차이가 있을 수 있습니다."
         )
-    messier_catalog = load_messier_catalog()
-
-    with st.spinner("M1 ~ M110 위치와 관측 조건을 계산하는 중..."):
-
-        messier_df = engine.get_messier_objects(
-            messier_catalog,
-            weather_score=average_score,
-        )
-
-    observable_df = messier_df[messier_df["추천점수"] > 0].copy()
-
-    if len(observable_df) > 0:
-
-        best_messier = observable_df.iloc[0]
-        best_label = best_messier["메시에"]
-
-        if best_messier["이름"]:
-            best_label += f' {best_messier["이름"]}'
-
-        best_score = int(best_messier["추천점수"])
-
-    else:
-
-        best_label = "없음"
-        best_score = 0
-
-    st.markdown(
-        """
-        <style>
-        .messier-summary-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            margin-top: 8px;
-            margin-bottom: 8px;
-        }
-
-        .messier-summary-card {
-            border: 1px solid rgba(128, 128, 128, 0.30);
-            border-radius: 14px;
-            padding: 12px 8px;
-            text-align: center;
-            min-width: 0;
-        }
-
-        .messier-summary-label {
-            font-size: 13px;
-            opacity: 0.8;
-            margin-bottom: 5px;
-        }
-
-        .messier-summary-value {
-            font-size: 23px;
-            font-weight: 800;
-        }
-
-        .messier-best-card {
-            border: 1px solid rgba(128, 128, 128, 0.30);
-            border-radius: 14px;
-            padding: 12px 10px;
-            text-align: center;
-            margin-bottom: 16px;
-        }
-
-        .messier-best-label {
-            font-size: 13px;
-            opacity: 0.8;
-            margin-bottom: 4px;
-        }
-
-        .messier-best-name {
-            font-size: 18px;
-            font-weight: 800;
-        }
-
-        .messier-best-score {
-            font-size: 13px;
-            margin-top: 3px;
-        }
-
-        @media (max-width: 768px) {
-
-            .messier-summary-label {
-                font-size: 12px;
-            }
-
-            .messier-summary-value {
-                font-size: 21px;
-            }
-
-            .messier-best-name {
-                font-size: 17px;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    messier_summary_html = (
-        '<div class="messier-summary-grid">'
-        '<div class="messier-summary-card">'
-        '<div class="messier-summary-label">🔭 현재 관측 가능</div>'
-        f'<div class="messier-summary-value">{len(observable_df)}개</div>'
-        "</div>"
-        '<div class="messier-summary-card">'
-        '<div class="messier-summary-label">🌙 달 밝기</div>'
-        f'<div class="messier-summary-value">{moon["밝기"]:.1f}%</div>'
-        "</div>"
-        "</div>"
-        '<div class="messier-best-card">'
-        '<div class="messier-best-label">🏆 현재 1순위</div>'
-        f'<div class="messier-best-name">{best_label}</div>'
-    )
-
-    if best_score > 0:
-
-        messier_summary_html += (
-            f'<div class="messier-best-score">' f"추천점수 {best_score}점" "</div>"
-        )
-
-    messier_summary_html += "</div>"
-
-    st.markdown(messier_summary_html, unsafe_allow_html=True)
-
-    with st.expander("🏆 오늘의 메시에 추천 TOP 10", expanded=False):
-
-        if len(observable_df) > 0:
-
-            top10 = observable_df.head(10)[
-                [
-                    "메시에",
-                    "이름",
-                    "종류",
-                    "등급",
-                    "고도 °",
-                    "방향",
-                    "달과 각거리 °",
-                    "추천점수",
-                    "추천",
-                ]
-            ]
-
-            st.dataframe(top10, use_container_width=True, hide_index=True)
-
-        else:
-
-            st.warning(
-                "현재 시각에는 고도 15° 이상이면서 "
-                "충분히 어두운 조건의 메시에 천체가 없습니다."
-            )
-
-        with st.expander("⏰ 오늘 밤 메시에 최적 관측시간 TOP 10", expanded=False):
-
-            st.caption(
-                "30분 간격의 날씨 점수, 천체 고도, "
-                "달 밝기·각거리, 겉보기등급을 함께 계산해 "
-                "오늘 밤 가장 좋은 시간대를 찾습니다."
-            )
-
-        weather_timeline = build_half_hour_weather_timeline(night_df)
-
-        with st.spinner("M1 ~ M110의 오늘 밤 최적 관측시간을 계산하는 중..."):
-
-            messier_best_df = engine.get_messier_best_times(
-                messier_catalog,
-                weather_timeline,
-            )
-
-        tonight_messier = messier_best_df[messier_best_df["오늘 최고점수"] > 0].copy()
-
-        if len(tonight_messier) > 0:
-
-            st.dataframe(
-                tonight_messier.head(10),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-        else:
-
-            st.warning("오늘 밤 추천 가능한 메시에 천체를 찾지 못했습니다.")
-
-        with st.expander("🔎 M1 ~ M110 전체 목록", expanded=False):
-
-            filter_col1, filter_col2 = st.columns(2)
-
-        only_observable = filter_col1.checkbox("현재 관측 가능한 천체만", value=True)
-
-        type_options = ["전체"] + sorted(messier_df["종류"].dropna().unique().tolist())
-
-        selected_type = filter_col2.selectbox("천체 종류", type_options)
-
-        display_messier = messier_df.copy()
-
-        if only_observable:
-
-            display_messier = display_messier[display_messier["추천점수"] > 0]
-
-        if selected_type != "전체":
-
-            display_messier = display_messier[display_messier["종류"] == selected_type]
-
-        st.dataframe(display_messier, use_container_width=True, hide_index=True)
-
-        st.caption(
-            "※ 메시에 추천점수는 동아리용 v1 경험식입니다. "
-            "현재 버전은 시간대별 천체 고도와 최적 관측시간을 반영하며, "
-            "광공해·시상·투명도 등은 추후 더 정교하게 반영할 예정입니다."
-        )
-
 
 except requests.exceptions.RequestException as e:
     st.error("날씨 정보를 불러오지 못했습니다.")
