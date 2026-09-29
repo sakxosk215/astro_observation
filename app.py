@@ -32,6 +32,410 @@ st.set_page_config(
 )
 
 # ==========================================
+# 사이드바 지역 검색 버튼 + 크기 고정
+# ==========================================
+
+components.html(
+    """
+    <script>
+    const win = window.parent;
+    const doc = win.document;
+
+    // ==========================================
+    // 이전에 만든 요소 제거
+    // ==========================================
+
+    const oldButton =
+        doc.getElementById("aaa-sidebar-search-button");
+
+    if (oldButton) {
+        oldButton.remove();
+    }
+
+    const oldStyle =
+        doc.getElementById("aaa-sidebar-search-style");
+
+    if (oldStyle) {
+        oldStyle.remove();
+    }
+
+    if (win.__aaaSidebarObserver) {
+        win.__aaaSidebarObserver.disconnect();
+    }
+
+
+    // ==========================================
+    // CSS
+    // ==========================================
+
+    const style = doc.createElement("style");
+
+    style.id = "aaa-sidebar-search-style";
+
+    style.textContent = `
+
+   /* ==========================================
+   Streamlit 기본 사이드바 열기 버튼 완전 숨김
+   우리가 만든 🔍 버튼만 사용
+   ========================================== */
+
+[data-testid="stExpandSidebarButton"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+[data-testid="stExpandSidebarButton"] button {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+        /* ======================================
+           사이드바 폭 고정
+           ====================================== */
+
+        section[data-testid="stSidebar"][aria-expanded="true"] {
+            width: 320px !important;
+            min-width: 320px !important;
+            max-width: 320px !important;
+        }
+
+
+        /* ======================================
+           사이드바가 열린 상태의 기본 버튼
+           ====================================== */
+
+        section[data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] {
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: flex !important;
+        }
+
+        section[data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] button {
+            opacity: 1 !important;
+            visibility: visible !important;
+
+            width: 38px !important;
+            height: 38px !important;
+
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+
+        /* 기존 화살표 숨기기 */
+        section[data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] button > * {
+            display: none !important;
+        }
+
+
+        /* 열린 상태 돋보기 */
+        section[data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] button::after {
+            content: "🔍";
+
+            display: block !important;
+
+            font-size: 21px !important;
+            line-height: 1 !important;
+
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+
+        /* ======================================
+           닫힌 상태에서 사용할 우리 버튼
+           ====================================== */
+
+        #aaa-sidebar-search-button {
+            position: fixed;
+
+            top: 10px;
+            left: 10px;
+
+            z-index: 999999;
+
+            width: 42px;
+            height: 42px;
+
+            padding: 0;
+
+            border: none;
+            border-radius: 10px;
+
+            background: transparent;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 22px;
+            line-height: 1;
+
+            cursor: pointer;
+
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #aaa-sidebar-search-button:hover {
+            background: rgba(128, 128, 128, 0.12);
+        }
+
+
+        /* ======================================
+           리사이즈 영역 제거
+           ====================================== */
+
+        [data-testid="stSidebarResizeHandle"] {
+            display: none !important;
+            pointer-events: none !important;
+            cursor: default !important;
+        }
+
+
+        /* inline style로 만들어지는
+           Streamlit 리사이즈 영역까지 제거 */
+        section[data-testid="stSidebar"]
+        [style*="cursor: col-resize"],
+        section[data-testid="stSidebar"]
+        [style*="cursor: ew-resize"],
+        section[data-testid="stSidebar"]
+        [style*="cursor: e-resize"] {
+            display: none !important;
+            pointer-events: none !important;
+            cursor: default !important;
+        }
+
+
+        /* ======================================
+           모바일
+           ====================================== */
+
+        @media (max-width: 640px) {
+
+            section[data-testid="stSidebar"][aria-expanded="true"] {
+                width: 85vw !important;
+                min-width: 85vw !important;
+                max-width: 85vw !important;
+            }
+
+            #aaa-sidebar-search-button {
+                top: 8px;
+                left: 8px;
+
+                width: 38px;
+                height: 38px;
+
+                font-size: 20px;
+            }
+        }
+    `;
+
+    doc.head.appendChild(style);
+
+
+    // ==========================================
+    // 닫힌 상태용 돋보기 버튼 생성
+    // ==========================================
+
+    const searchButton =
+        doc.createElement("button");
+
+    searchButton.id =
+        "aaa-sidebar-search-button";
+
+    searchButton.type =
+        "button";
+
+    searchButton.innerHTML =
+        "🔍";
+
+    searchButton.title =
+        "지역 검색";
+
+    searchButton.setAttribute(
+        "aria-label",
+        "지역 검색"
+    );
+
+    doc.body.appendChild(searchButton);
+
+
+    // ==========================================
+    // 사이드바 열림/닫힘 상태 확인
+    // ==========================================
+
+    function updateSearchButton() {
+
+        const sidebar =
+            doc.querySelector(
+                '[data-testid="stSidebar"]'
+            );
+
+        if (!sidebar) {
+            searchButton.style.display = "flex";
+            return;
+        }
+
+        const expanded =
+            sidebar.getAttribute(
+                "aria-expanded"
+            ) === "true";
+
+
+        // 사이드바가 닫혀 있을 때만
+        // 별도 돋보기 버튼 표시
+        if (expanded) {
+
+            searchButton.style.display =
+                "none";
+
+        } else {
+
+            searchButton.style.display =
+                "flex";
+        }
+    }
+
+
+    // ==========================================
+    // 사이드바 크기 조절 영역 완전 제거
+    // ==========================================
+
+    function disableSidebarResize() {
+
+        const sidebar =
+            doc.querySelector(
+                '[data-testid="stSidebar"]'
+            );
+
+        if (!sidebar) {
+            return;
+        }
+
+        const elements =
+            sidebar.querySelectorAll("*");
+
+        elements.forEach(
+            function(element) {
+
+                const computed =
+                    win.getComputedStyle(
+                        element
+                    );
+
+                const cursor =
+                    computed.cursor || "";
+
+                if (
+                    cursor.includes("resize")
+                ) {
+
+                    element.style.setProperty(
+                        "pointer-events",
+                        "none",
+                        "important"
+                    );
+
+                    element.style.setProperty(
+                        "cursor",
+                        "default",
+                        "important"
+                    );
+                }
+            }
+        );
+    }
+
+
+   // ==========================================
+// 돋보기 클릭 → 실제 사이드바 열기 버튼 클릭
+// ==========================================
+
+searchButton.addEventListener(
+    "click",
+    function() {
+
+        const expandContainer =
+            doc.querySelector(
+                '[data-testid="stExpandSidebarButton"]'
+            );
+
+        if (!expandContainer) {
+            return;
+        }
+
+        const realButton =
+            expandContainer.matches("button")
+                ? expandContainer
+                : expandContainer.querySelector("button");
+
+        if (!realButton) {
+            return;
+        }
+
+        realButton.click();
+
+        setTimeout(
+            function() {
+                updateSearchButton();
+                disableSidebarResize();
+            },
+            100
+        );
+    }
+);
+
+
+    // ==========================================
+    // Streamlit이 화면을 다시 그려도 재적용
+    // ==========================================
+
+    const observer =
+        new MutationObserver(
+            function() {
+
+                updateSearchButton();
+                disableSidebarResize();
+            }
+        );
+
+    observer.observe(
+        doc.body,
+        {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                "aria-expanded",
+                "style"
+            ]
+        }
+    );
+
+    win.__aaaSidebarObserver =
+        observer;
+
+
+    // 처음 한 번 실행
+    updateSearchButton();
+    disableSidebarResize();
+
+    </script>
+    """,
+    height=0,
+)
+
+# ==========================================
 # 모바일 Pull-to-Refresh
 # ==========================================
 
@@ -2449,23 +2853,10 @@ try:
         """
         <style>
 
-        
-
         /* 제목 옆 링크/고정 버튼 숨기기 */
 [data-testid="stHeaderActionElements"],
 a.anchor-link {
     display: none !important;
-}
-
-/* 왼쪽 위 사이드바 열기 버튼을 검색 아이콘으로 변경 */
-[data-testid="stSidebarCollapsedControl"] button svg {
-    display: none !important;
-}
-
-[data-testid="stSidebarCollapsedControl"] button::after {
-    content: "🔍";
-    font-size: 22px;
-    line-height: 1;
 }
 
         .current-weather-grid {
