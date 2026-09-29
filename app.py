@@ -3828,6 +3828,10 @@ a.anchor-link {
                 "오늘 최고점수": int(row["오늘 최고점수"]),
                 "추천": row["추천"],
                 "겉보기등급": None,
+                "최적 시각 구름 %": row.get(
+                    "최적 시각 구름 %",
+                    None,
+                ),
             }
         )
 
@@ -3977,6 +3981,21 @@ a.anchor-link {
                 # ==================================
 
                 elif item["분류"] == "행성":
+
+                    cloud_value = item.get(
+                        "최적 시각 구름 %",
+                        None,
+                    )
+
+                    if cloud_value is not None and not pd.isna(cloud_value):
+                        cloud_value = float(cloud_value)
+
+                        if cloud_value <= 10:
+                            reason_parts.append(f"구름 거의 없음({cloud_value:.0f}%)")
+
+                        elif cloud_value <= 25:
+                            reason_parts.append(f"구름 적음({cloud_value:.0f}%)")
+
                     reason_parts.append("행성 관측에 유리")
 
                 if reason_parts:

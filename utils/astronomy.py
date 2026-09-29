@@ -699,6 +699,11 @@ class AstronomyEngine:
             dtype=float,
         )
 
+        cloud_values = np.asarray(
+            [float(item.get("cloud", 100.0)) for item in weather_timeline],
+            dtype=float,
+        )
+
         sky_times = self.ts.from_datetimes(times)
 
         observer_at = self.observer.at(sky_times)
@@ -760,8 +765,17 @@ class AstronomyEngine:
 
             # 완전히 어두운 천문박명 이후 +
             # 고도 15도 이상만 추천
-            observable = (alt >= float(min_altitude)) & (sun_alt <= -18.0)
-
+            # 행성 추천 조건
+            # - 고도 15도 이상
+            # - 천문박명 이후
+            # - 날씨 점수 65점 이상
+            # - 유효구름 25% 미만
+            observable = (
+                (alt >= float(min_altitude))
+                & (sun_alt <= -18.0)
+                & (weather_scores >= 65.0)
+                & (cloud_values < 25.0)
+            )
             final_scores = np.clip(
                 raw_scores,
                 0.0,
@@ -781,10 +795,16 @@ class AstronomyEngine:
                 best_alt_text = "-"
                 best_direction = "-"
                 window_text = "-"
+                best_cloud = np.nan
 
             else:
 
                 best_idx = int(np.argmax(final_scores))
+
+                best_cloud = round(
+                    float(cloud_values[best_idx]),
+                    1,
+                )
 
                 best_score = round(float(final_scores[best_idx]))
 
@@ -848,6 +868,7 @@ class AstronomyEngine:
                     "최적 고도 °": best_alt_text,
                     "방향": best_direction,
                     "오늘 최고점수": best_score,
+                    "최적 시각 구름 %": best_cloud,
                     "추천": (score_grade(best_score) if best_score > 0 else "-"),
                 }
             )
@@ -951,7 +972,10 @@ class AstronomyEngine:
 
             # 천문박명(-18°) 이후의 완전히 어두운 시간만
             # 메시에 관측 추천 시간으로 사용
-            observable = (alt >= 15.0) & (sun_alt <= -18.0)
+            # 메시에 천체는
+            # 천문박명 이후 + 고도 15도 이상 +
+            # 달이 지평선 아래일 때만 추천
+            observable = (alt >= 15.0) & (sun_alt <= -18.0) & (moon_alt <= 0.0)
             final_scores = np.clip(raw_scores, 0.0, 100.0)
             final_scores = np.where(observable, final_scores, 0.0)
 
@@ -1028,7 +1052,11 @@ class AstronomyEngine:
                     "방향": best_direction,
                     "추천 관측시간": window_text,
                     "오늘 최고점수": best_score,
-                    "추천": score_grade(best_score) if best_score > 0 else "-",
+                    "최적 시각 구름 %": best_cloud,
+                    "최적 시각 달 밝기 %": best_moon_brightness,
+                    "최적 시각 달 고도 °": best_moon_altitude,
+                    "달과 각거리 °": best_moon_separation,
+                    "추천": (score_grade(best_score) if best_score > 0 else "-"),
                 }
             )
 
