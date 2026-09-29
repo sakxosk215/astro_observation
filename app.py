@@ -2449,7 +2449,6 @@ a.anchor-link {
 
     weekly_df = build_weekly_forecast(weather, engine)
 
-    
     # ======================================
     # 달 밝기 / 고도에 따른 관측 감점
     # ======================================
@@ -3732,14 +3731,80 @@ a.anchor-link {
     tonight_messier = messier_best_df[messier_best_df["오늘 최고점수"] > 0].copy()
 
     # ======================================
-    # 오늘 밤 추천 관측 대상 TOP 3
+    # 오늘 밤 행성 추천 점수 계산
     # ======================================
+
+    planet_best_df = engine.get_planet_best_times(weather_timeline)
+
+    # ======================================
+    # 메시에 + 행성 통합 추천 목록
+    # ======================================
+
+    recommended_objects = []
+
+    # 메시에 천체 추가
+    for _, row in tonight_planets.iterrows():
+
+            # 추천 관측시간이 없거나
+            # 추천 기준 점수 미만이면 제외
+            if (
+                row["추천 관측시간"] == "-"
+                or int(row["오늘 최고점수"]) < 65
+            ):
+                continue
+
+            recommended_objects.append(
+            {
+                "분류": "메시에",
+                "이름": (f"{row['메시에']} " f"{row['이름']}"),
+                "종류": row["종류"],
+                "추천 관측시간": (row["추천 관측시간"]),
+                "최적 시각": (row["최적 시각"]),
+                "최적 고도 °": (row["최적 고도 °"]),
+                "방향": row["방향"],
+                "오늘 최고점수": int(row["오늘 최고점수"]),
+                "추천": row["추천"],
+                "겉보기등급": row["등급"],
+            }
+        )
+
+    # 행성 추가
+    if not planet_best_df.empty and "오늘 최고점수" in planet_best_df.columns:
+
+        tonight_planets = planet_best_df[planet_best_df["오늘 최고점수"] > 0].copy()
+
+        for _, row in tonight_planets.iterrows():
+
+            recommended_objects.append(
+                {
+                    "분류": "행성",
+                    "이름": row["행성"],
+                    "종류": "행성",
+                    "추천 관측시간": (row["추천 관측시간"]),
+                    "최적 시각": (row["최적 시각"]),
+                    "최적 고도 °": (row["최적 고도 °"]),
+                    "방향": row["방향"],
+                    "오늘 최고점수": int(row["오늘 최고점수"]),
+                    "추천": row["추천"],
+                    "겉보기등급": None,
+                }
+            )
+
+    # ======================================
+    # 점수순 TOP 3
+    # ======================================
+
+    recommended_objects = sorted(
+        recommended_objects,
+        key=lambda item: item["오늘 최고점수"],
+        reverse=True,
+    )
+
+    recommended_top3 = recommended_objects[:3]
 
     st.subheader("🌌 오늘 밤 추천 관측 대상")
 
-    if len(tonight_messier) > 0:
-
-        recommended_messier = tonight_messier.head(3).reset_index(drop=True)
+    if recommended_top3:
 
         rank_icons = [
             "🥇",
@@ -3747,31 +3812,35 @@ a.anchor-link {
             "🥉",
         ]
 
-        for index, row in recommended_messier.iterrows():
+        for index, item in enumerate(recommended_top3):
 
             with st.container(border=True):
 
-                st.markdown(
-                    f"### {rank_icons[index]} " f"{row['메시에']} {row['이름']}"
-                )
+                if item["분류"] == "행성":
+                    title = f"🪐 {item['이름']}"
+                else:
+                    title = f"🌌 {item['이름']}"
 
-                st.markdown(f"**{row['추천']} · " f"{int(row['오늘 최고점수'])}점**")
+                st.markdown(f"### {rank_icons[index]} " f"{title}")
 
-                st.write(f"🔭 종류 : {row['종류']}")
+                st.markdown(f"**{item['추천']} · " f"{item['오늘 최고점수']}점**")
 
-                st.write(f"⏰ 추천 시간 : " f"{row['추천 관측시간']}")
+                st.write(f"🔭 종류 : " f"{item['종류']}")
 
-                st.write(f"✨ 최적 시각 : " f"{row['최적 시각']}")
+                st.write(f"⏰ 추천 시간 : " f"{item['추천 관측시간']}")
 
-                st.write(f"📐 최적 고도 : " f"{row['최적 고도 °']}°")
+                st.write(f"✨ 최적 시각 : " f"{item['최적 시각']}")
 
-                st.write(f"🧭 방향 : " f"{row['방향']}")
+                st.write(f"📐 최적 고도 : " f"{item['최적 고도 °']}°")
 
-                st.write(f"👁️ 겉보기등급 : " f"{row['등급']}")
+                st.write(f"🧭 방향 : " f"{item['방향']}")
+
+                if item["분류"] == "메시에":
+                    st.write(f"👁️ 겉보기등급 : " f"{item['겉보기등급']}")
 
     else:
 
-        st.info("오늘 밤 추천할 수 있는 " "메시에 천체가 없습니다.")
+        st.info("오늘 밤 추천할 수 있는 " "관측 대상이 없습니다.")
 
     with st.expander("⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"):
 

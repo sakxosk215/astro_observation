@@ -428,10 +428,7 @@ class AstronomyEngine:
                 alt = altitude.degrees
                 az = azimuth.degrees
 
-             # 천문박명(-18) 이후의 완전히 어두운 시간만
-             # 메시에 관측 추천 시간으로 사용
-
-                observable = alt >= 15 and sun_alt <= -18
+                observable = alt >= 15 and sun_alt <= -6
 
                 if alt < 0:
                     status = "❌ 지평선 아래"
@@ -684,6 +681,184 @@ class AstronomyEngine:
             ascending=False,
         ).reset_index(drop=True)
 
+    def get_planet_best_times(
+        self,
+        weather_timeline,
+        min_altitude=15.0,
+    ):
+        # 오늘 밤 날씨 + 행성 고도를 이용해
+        # 행성별 최적 관측시간과 추천점수를 계산
+
+        if not weather_timeline:
+            return pd.DataFrame()
+
+        times = [self._ensure_kst(item["time"]) for item in weather_timeline]
+
+        weather_scores = np.asarray(
+            [float(item["score"]) for item in weather_timeline],
+            dtype=float,
+        )
+
+        sky_times = self.ts.from_datetimes(times)
+
+        observer_at = self.observer.at(sky_times)
+
+        sun_alt = np.asarray(
+            observer_at.observe(self.sun).apparent().altaz()[0].degrees,
+            dtype=float,
+        )
+
+        if len(times) >= 2:
+            step_minutes = max(
+                1,
+                round((times[1] - times[0]).total_seconds() / 60),
+            )
+        else:
+            step_minutes = 30
+
+        rows = []
+
+        for (
+            korean_name,
+            skyfield_name,
+        ) in PLANETS.items():
+
+            # 추천 관측 대상 행성은
+            # 목성과 토성만 사용
+            if korean_name not in (
+                "목성",
+                "토성",
+            ):
+                continue
+
+            planet = self.eph[skyfield_name]
+
+            apparent = observer_at.observe(planet).apparent()
+
+            altitude, azimuth, _ = apparent.altaz()
+
+            alt = np.asarray(
+                altitude.degrees,
+                dtype=float,
+            )
+
+            az = np.asarray(
+                azimuth.degrees,
+                dtype=float,
+            )
+
+            # 고도 점수
+            altitude_scores = np.clip(
+                (alt - 10.0) / 50.0 * 100.0,
+                0.0,
+                100.0,
+            )
+
+            # 행성은 달빛 영향이 작으므로
+            # 날씨 65% + 고도 35%
+            raw_scores = weather_scores * 0.65 + altitude_scores * 0.35
+
+            # 완전히 어두운 천문박명 이후 +
+            # 고도 15도 이상만 추천
+            observable = (alt >= float(min_altitude)) & (sun_alt <= -18.0)
+
+            final_scores = np.clip(
+                raw_scores,
+                0.0,
+                100.0,
+            )
+
+            final_scores = np.where(
+                observable,
+                final_scores,
+                0.0,
+            )
+
+            if np.max(final_scores) <= 0.0:
+
+                best_score = 0
+                best_time_text = "-"
+                best_alt_text = "-"
+                best_direction = "-"
+                window_text = "-"
+
+            else:
+
+                best_idx = int(np.argmax(final_scores))
+
+                best_score = round(float(final_scores[best_idx]))
+
+                best_time_text = times[best_idx].strftime("%H:%M")
+
+                best_alt_text = round(
+                    float(alt[best_idx]),
+                    1,
+                )
+
+                best_direction = azimuth_to_direction(float(az[best_idx]))
+
+                # 최고점 근처의 좋은 시간대를
+                # 연속 추천 구간으로 묶기
+                threshold = max(
+                    65.0,
+                    float(final_scores[best_idx]) - 12.0,
+                )
+
+                good_mask = observable & (final_scores >= threshold)
+
+                runs = self._mask_runs(good_mask)
+
+                selected = next(
+                    ((s, e) for s, e in runs if (s <= best_idx <= e)),
+                    None,
+                )
+
+                if selected:
+
+                    s, e = selected
+
+                    window_start = times[s]
+
+                    window_end = times[e] + timedelta(minutes=step_minutes)
+
+                    # 같은 날짜면 시간만 표시
+                    if window_start.date() == window_end.date():
+                        window_text = (
+                            f"{window_start.strftime('%H:%M')}"
+                            f" ~ "
+                            f"{window_end.strftime('%H:%M')}"
+                        )
+
+                    # 자정을 넘으면 날짜 표시
+                    else:
+                        window_text = (
+                            f"{window_start.strftime('%m/%d %H:%M')}"
+                            f" ~ "
+                            f"{window_end.strftime('%m/%d %H:%M')}"
+                        )
+
+                else:
+                    window_text = best_time_text
+
+            rows.append(
+                {
+                    "행성": korean_name,
+                    "추천 관측시간": window_text,
+                    "최적 시각": best_time_text,
+                    "최적 고도 °": best_alt_text,
+                    "방향": best_direction,
+                    "오늘 최고점수": best_score,
+                    "추천": (score_grade(best_score) if best_score > 0 else "-"),
+                }
+            )
+
+        df = pd.DataFrame(rows)
+
+        return df.sort_values(
+            by="오늘 최고점수",
+            ascending=False,
+        ).reset_index(drop=True)
+
     def get_messier_best_times(self, catalog, weather_timeline):
         """시간대별 날씨와 천체 고도/달빛을 합쳐 M1~M110의 오늘 밤 최적 시간을 계산한다."""
         if not weather_timeline:
@@ -769,7 +944,9 @@ class AstronomyEngine:
                 - moon_penalty
             )
 
-            observable = (alt >= 15.0) & (sun_alt <= -6.0)
+            # 천문박명(-18°) 이후의 완전히 어두운 시간만
+            # 메시에 관측 추천 시간으로 사용
+            observable = (alt >= 15.0) & (sun_alt <= -18.0)
             final_scores = np.clip(raw_scores, 0.0, 100.0)
             final_scores = np.where(observable, final_scores, 0.0)
 
