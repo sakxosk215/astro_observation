@@ -1,3 +1,4 @@
+import base64
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -25,7 +26,7 @@ if CLUB_ICON_PATH.exists():
     club_icon = Image.open(CLUB_ICON_PATH)
 
 st.set_page_config(
-    page_title="AAA 날씨 확인",
+    page_title="AAA 관측 도우미",
     page_icon=club_icon if club_icon is not None else "🌌",
     layout="wide",
 )
@@ -1072,23 +1073,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
-title_col1, title_col2 = st.columns(
-    [1, 7],
-    vertical_alignment="center",
-)
-
-with title_col1:
-    st.image(
-        club_icon,
-        width=85,
-    )
-
-with title_col2:
-    st.title("AAA 날씨 확인")
-st.write("AAA를 위한 관측 지원 도구입니다.")
-st.divider()
 
 # ==========================================
 # 장소 이름 → 위도 / 경도 검색
@@ -2424,9 +2408,34 @@ try:
 
     engine = AstronomyEngine(latitude, longitude)
 
-    engine = AstronomyEngine(latitude, longitude)
+    # ==========================================
+    # AAA 동아리 로고 + 제목
+    # ==========================================
 
-    st.subheader(f"📍 현재 관측지: {location_name}")
+    club_icon_base64 = base64.b64encode(CLUB_ICON_PATH.read_bytes()).decode("utf-8")
+
+    st.markdown(
+        f"""
+        <h1 style="margin-bottom: 8px;">
+            <img
+                src="data:image/png;base64,{club_icon_base64}"
+                width="34"
+                height="34"
+                style="
+                    vertical-align: middle;
+                    object-fit: contain;
+                    margin-right: 8px;
+                "
+            >
+            <span style="vertical-align: middle;">
+                AAA 관측 도우미 
+            </span>
+        </h1>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.write("AAA를 위한 관측 지원 도구입니다.")
 
     st.subheader(f"📍 현재 관측지: {location_name}")
     st.subheader("🌦️ 현재 날씨")
@@ -2440,10 +2449,23 @@ try:
         """
         <style>
 
+        
+
         /* 제목 옆 링크/고정 버튼 숨기기 */
 [data-testid="stHeaderActionElements"],
 a.anchor-link {
     display: none !important;
+}
+
+/* 왼쪽 위 사이드바 열기 버튼을 검색 아이콘으로 변경 */
+[data-testid="stSidebarCollapsedControl"] button svg {
+    display: none !important;
+}
+
+[data-testid="stSidebarCollapsedControl"] button::after {
+    content: "🔍";
+    font-size: 22px;
+    line-height: 1;
 }
 
         .current-weather-grid {
