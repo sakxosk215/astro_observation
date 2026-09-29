@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+from PIL import Image
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -15,13 +16,17 @@ KST = ZoneInfo("Asia/Seoul")
 BASE_DIR = Path(__file__).resolve().parent
 
 MESSIER_PATH = BASE_DIR / "data" / "messier.json"
-
 CONSTELLATION_PATH = BASE_DIR / "data" / "constellations.json"
+CLUB_ICON_PATH = BASE_DIR / "assets" / "club_icon.png"
 
+club_icon = None
+
+if CLUB_ICON_PATH.exists():
+    club_icon = Image.open(CLUB_ICON_PATH)
 
 st.set_page_config(
-    page_title="천체관측 도우미",
-    page_icon="🌌",
+    page_title="AAA 날씨 확인",
+    page_icon=club_icon if club_icon is not None else "🌌",
     layout="wide",
 )
 
@@ -1069,7 +1074,19 @@ st.markdown(
 )
 
 
-st.title("🌌 AAA 날씨 확인")
+title_col1, title_col2 = st.columns(
+    [1, 7],
+    vertical_alignment="center",
+)
+
+with title_col1:
+    st.image(
+        club_icon,
+        width=85,
+    )
+
+with title_col2:
+    st.title("AAA 날씨 확인")
 st.write("AAA를 위한 관측 지원 도구입니다.")
 st.divider()
 
@@ -3074,6 +3091,82 @@ a.anchor-link {
         )
 
         st.markdown(night_summary_html, unsafe_allow_html=True)
+
+        # ======================================
+        # 오늘 밤 이슬 위험 요약
+        # ======================================
+
+        night_dew_df = night_df[
+            [
+                "시간",
+                "기온",
+                "습도",
+            ]
+        ].copy()
+
+        night_dew_results = night_dew_df.apply(
+            lambda row: calculate_dew_risk(
+                float(row["기온"]),
+                float(row["습도"]),
+            ),
+            axis=1,
+        )
+
+        night_dew_df["이슬점"] = night_dew_results.apply(
+            lambda result: result["dew_point"]
+        )
+
+        night_dew_df["기온차"] = night_dew_results.apply(lambda result: result["gap"])
+
+        night_dew_df["아이콘"] = night_dew_results.apply(lambda result: result["icon"])
+
+        night_dew_df["안내"] = night_dew_results.apply(lambda result: result["advice"])
+
+        risk_rank = {
+            "🟢": 0,
+            "🟡": 1,
+            "🟠": 2,
+            "🔴": 3,
+        }
+
+        night_dew_df["위험순위"] = night_dew_df["아이콘"].map(risk_rank)
+
+        worst_rank = int(night_dew_df["위험순위"].max())
+
+        worst_rows = night_dew_df[night_dew_df["위험순위"] == worst_rank]
+
+        first_worst = worst_rows.iloc[0]
+
+        first_worst_time = first_worst["시간"].strftime("%H:%M")
+
+        worst_icon = first_worst["아이콘"]
+        worst_advice = first_worst["안내"]
+
+        minimum_gap = night_dew_df["기온차"].min()
+
+        if worst_rank == 0:
+
+            dew_summary_text = (
+                "💧 오늘 밤 이슬 위험 : "
+                "🟢 걱정 적음"
+                f" · 최저 기온차 {minimum_gap:.1f}°C"
+            )
+
+            st.info(dew_summary_text)
+
+        else:
+
+            dew_summary_text = (
+                f"💧 오늘 밤 이슬 주의 : "
+                f"{first_worst_time}부터 "
+                f"{worst_icon} {worst_advice}"
+                f" · 최저 기온차 {minimum_gap:.1f}°C"
+            )
+
+            if worst_rank >= 2:
+                st.warning(dew_summary_text)
+            else:
+                st.info(dew_summary_text)
 
         # ======================================
         # 시간별 상세 정보
