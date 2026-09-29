@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
@@ -1069,7 +1070,7 @@ st.markdown(
 
 
 st.title("🌌 AAA 날씨 확인")
-st.write("AAA를 위한 관측 지원 앱입니다.")
+st.write("AAA를 위한 관측 지원 도구입니다.")
 st.divider()
 
 # ==========================================
@@ -1419,6 +1420,52 @@ def weather_score_grade(score):
 
     else:
         return "🔴 관측 비추천"
+
+
+def calculate_dew_risk(
+    temperature,
+    humidity,
+):
+    # Magnus 공식으로 이슬점 계산
+    a = 17.62
+    b = 243.12
+
+    gamma = (a * temperature) / (b + temperature) + np.log(humidity / 100.0)
+
+    dew_point = b * gamma / (a - gamma)
+
+    temperature_gap = temperature - dew_point
+
+    # 기온과 이슬점의 차이가 작을수록
+    # 광학계에 이슬이 생길 가능성이 높음
+    if temperature_gap >= 6:
+        icon = "🟢"
+        advice = "걱정 적음"
+
+    elif temperature_gap >= 4:
+        icon = "🟡"
+        advice = "렌즈 상태 확인"
+
+    elif temperature_gap >= 2:
+        icon = "🟠"
+        advice = "듀히터 준비 권장"
+
+    else:
+        icon = "🔴"
+        advice = "듀히터 사용 권장"
+
+    return {
+        "icon": icon,
+        "advice": advice,
+        "dew_point": round(
+            dew_point,
+            1,
+        ),
+        "gap": round(
+            temperature_gap,
+            1,
+        ),
+    }
 
 
 def cloud_cell_style(value):
@@ -2367,6 +2414,11 @@ try:
     st.subheader(f"📍 현재 관측지: {location_name}")
     st.subheader("🌦️ 현재 날씨")
 
+    dew_risk = calculate_dew_risk(
+        current["temperature_2m"],
+        current["relative_humidity_2m"],
+    )
+
     st.markdown(
         """
         <style>
@@ -2443,6 +2495,14 @@ a.anchor-link {
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">💧 습도</div>'
         f'<div class="weather-mini-value">{current["relative_humidity_2m"]:.0f}%</div>'
+        "</div>"
+        '<div class="weather-mini-card">'
+        '<div class="weather-mini-label">💧 이슬 위험</div>'
+        f'<div class="weather-mini-value">{dew_risk["icon"]} {dew_risk["advice"]}</div>'
+        f'<div style="font-size:0.8rem; opacity:0.75; margin-top:4px;">'
+        f'이슬점 {dew_risk["dew_point"]:.1f}°C · '
+        f'기온차 {dew_risk["gap"]:.1f}°C'
+        "</div>"
         "</div>"
         '<div class="weather-mini-card">'
         '<div class="weather-mini-label">💨 풍속</div>'
@@ -3022,13 +3082,169 @@ a.anchor-link {
         @st.fragment(run_every="1m")
         def show_hourly_weather_table():
 
-            # 현재 시각부터 앞으로 24시간을
+            # 현재 시각부터 앞으로 48시간을
             # 자동으로 다시 계산
             current_day_weather_df = build_day_weather_dataframe(weather)
 
             with st.expander("📊 시간별 상세 정보"):
 
                 table_df = current_day_weather_df.copy()
+
+                def show_hourly_weather_table():
+
+                    # 현재 시각부터 앞으로 48시간을
+                    # 자동으로 다시 계산
+                    current_day_weather_df = build_day_weather_dataframe(weather)
+
+                    with st.expander("📊 시간별 상세 정보"):
+
+                        table_df = current_day_weather_df.copy()
+
+                        # 현재 시간을 정각 기준으로 계산
+                        current_hour = (
+                            datetime.now(KST)
+                            .replace(
+                                minute=0,
+                                second=0,
+                                microsecond=0,
+                            )
+                            .replace(tzinfo=None)
+                        )
+
+                        # ======================================
+                        # 7일 예보의 모든 천문 관측 밤 구간
+                        # ======================================
+
+                        night_intervals = []
+
+                        for _, forecast_row in weekly_df.iterrows():
+
+                            forecast_date = pd.to_datetime(forecast_row["날짜"]).date()
+
+                            astro_start_text = str(forecast_row["천문박명 종료"])
+
+                            astro_end_text = str(forecast_row["천문박명 시작"])
+
+                            astro_start_datetime = pd.to_datetime(
+                                f"{forecast_date} {astro_start_text}"
+                            )
+
+                            astro_end_datetime = pd.to_datetime(
+                                f"{forecast_date} {astro_end_text}"
+                            )
+
+                            # 천문박명 시작은 다음 날 새벽
+                            if astro_end_datetime <= astro_start_datetime:
+                                astro_end_datetime += timedelta(days=1)
+
+                            night_intervals.append(
+                                (
+                                    astro_start_datetime,
+                                    astro_end_datetime,
+                                )
+                            )
+
+                            # 시간 표시 함수
+
+                        def format_hourly_time(time):
+
+                            markers = []
+
+                            # 현재 시간
+                            if time == current_hour:
+                                markers.append("➡")
+
+                            # 7일 예보의 천문박명 구간 중
+                            # 하나라도 포함되면 밤 표시
+                            is_astronomical_night = any(
+                                start <= time <= end for start, end in night_intervals
+                            )
+
+                            if is_astronomical_night:
+                                markers.append("🌙")
+
+                            time_text = time.strftime("%m/%d %H:%M")
+
+                            if markers:
+                                return f"{' '.join(markers)} " f"{time_text}"
+
+                            return time_text
+
+                        table_df["시간"] = table_df["시간"].apply(format_hourly_time)
+
+                        # 시정 m → km
+                        table_df["시정"] = (table_df["시정"] / 1000).round(1)
+
+                        table_df = table_df[
+                            [
+                                "시간",
+                                "관측점수",
+                                "구름량",
+                                "하층구름",
+                                "중층구름",
+                                "상층구름",
+                                "강수확률",
+                                "습도",
+                                "풍속",
+                                "시정",
+                            ]
+                        ].rename(
+                            columns={
+                                "관측점수": "관측 점수",
+                                "구름량": "전체 구름 %",
+                                "하층구름": "하층 %",
+                                "중층구름": "중층 %",
+                                "상층구름": "상층 %",
+                                "강수확률": "강수확률 %",
+                                "습도": "습도 %",
+                                "풍속": "풍속 km/h",
+                                "시정": "시정 km",
+                            }
+                        )
+
+                        # 밤 시간대 행 강조
+                        def highlight_night_row(row):
+
+                            if "🌙" in str(row["시간"]):
+                                return [
+                                    (
+                                        "background-color: #28364f; "
+                                        "color: white; "
+                                        "font-weight: 700; "
+                                        "border-top: 1px solid #52698f; "
+                                        "border-bottom: 1px solid #52698f;"
+                                    )
+                                    for _ in row
+                                ]
+
+                            return ["" for _ in row]
+
+                        styled_table_df = table_df.style.map(
+                            cloud_cell_style,
+                            subset=[
+                                "전체 구름 %",
+                                "하층 %",
+                                "중층 %",
+                                "상층 %",
+                            ],
+                        ).apply(
+                            highlight_night_row,
+                            axis=1,
+                            subset=[
+                                "시간",
+                                "관측 점수",
+                                "강수확률 %",
+                                "습도 %",
+                                "풍속 km/h",
+                                "시정 km",
+                            ],
+                        )
+
+                        st.dataframe(
+                            styled_table_df,
+                            use_container_width=True,
+                            hide_index=True,
+                        )
 
                 # 현재 시간을 정각 기준으로 계산
                 current_hour = (
@@ -3115,6 +3331,8 @@ a.anchor-link {
                         "상층구름",
                         "강수확률",
                         "습도",
+                        "이슬점",
+                        "이슬 위험",
                         "풍속",
                         "시정",
                     ]
@@ -3127,6 +3345,7 @@ a.anchor-link {
                         "상층구름": "상층 %",
                         "강수확률": "강수확률 %",
                         "습도": "습도 %",
+                        "이슬점": "이슬점°C",
                         "풍속": "풍속 km/h",
                         "시정": "시정 km",
                     }
@@ -4027,9 +4246,7 @@ a.anchor-link {
 
     if len(tonight_messier) > 0:
 
-        with st.expander(
-            "⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"
-        ):
+        with st.expander("⏰ 오늘 밤 메시에 최적 관측시간 TOP 10"):
 
             st.caption(
                 "30분 간격의 날씨 점수, 천체 고도, "
