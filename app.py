@@ -2311,8 +2311,22 @@ def build_half_hour_weather_timeline(night_df):
     if len(night_df) == 0:
         return []
 
+    working_df = night_df.copy()
+
+    # 유효구름량이 아직 없으면 여기서 계산
+    if "유효구름량" not in working_df.columns:
+        working_df["유효구름량"] = working_df.apply(
+            lambda row: max(
+                row["전체구름"],
+                row["하층구름"],
+                row["중층구름"] * 0.95,
+                row["상층구름"] * 0.85,
+            ),
+            axis=1,
+        )
+
     score_df = (
-        night_df[
+        working_df[
             [
                 "시간",
                 "관측점수",
@@ -3770,6 +3784,22 @@ a.anchor-link {
                 "오늘 최고점수": int(row["오늘 최고점수"]),
                 "추천": row["추천"],
                 "겉보기등급": row["등급"],
+                "최적 시각 구름 %": row.get(
+                    "최적 시각 구름 %",
+                    None,
+                ),
+                "최적 시각 달 밝기 %": row.get(
+                    "최적 시각 달 밝기 %",
+                    None,
+                ),
+                "최적 시각 달 고도 °": row.get(
+                    "최적 시각 달 고도 °",
+                    None,
+                ),
+                "달과 각거리 °": row.get(
+                    "달과 각거리 °",
+                    None,
+                ),
             }
         )
 
@@ -3837,14 +3867,13 @@ a.anchor-link {
                 st.markdown(f"**{item['추천']} · " f"{item['오늘 최고점수']}점**")
 
                 # ==================================
-                # 추천 이유
+                # 실제 관측 조건 기반 추천 이유
                 # ==================================
 
                 reason_parts = []
+                warning_parts = []
 
                 best_altitude = float(item["최적 고도 °"])
-
-                best_score = int(item["오늘 최고점수"])
 
                 # 고도
                 if best_altitude >= 60:
@@ -3853,26 +3882,108 @@ a.anchor-link {
                 elif best_altitude >= 40:
                     reason_parts.append("양호한 고도")
 
-                # 종합 관측 조건
-                if best_score >= 90:
-                    reason_parts.append("매우 좋은 종합 조건")
+                # ==================================
+                # 메시에 천체
+                # ==================================
 
-                elif best_score >= 80:
-                    reason_parts.append("좋은 종합 조건")
+                if item["분류"] == "메시에":
 
-                # 메시에 천체의 밝기
-                if item["분류"] == "메시에" and item["겉보기등급"] is not None:
-                    magnitude = float(item["겉보기등급"])
+                    # 실제 최적 시각 구름량
+                    cloud_value = item.get(
+                        "최적 시각 구름 %",
+                        None,
+                    )
 
-                    if magnitude <= 4:
-                        reason_parts.append("밝은 천체")
+                    if cloud_value is not None and not pd.isna(cloud_value):
+                        cloud_value = float(cloud_value)
 
-                # 목성·토성
-                if item["분류"] == "행성":
+                        if cloud_value <= 10:
+                            reason_parts.append(f"구름 거의 없음({cloud_value:.0f}%)")
+
+                        elif cloud_value <= 25:
+                            reason_parts.append(f"구름 적음({cloud_value:.0f}%)")
+
+                        elif cloud_value <= 40:
+                            reason_parts.append(f"구름 비교적 적음({cloud_value:.0f}%)")
+
+                    # 천체 밝기
+                    magnitude = item.get(
+                        "겉보기등급",
+                        None,
+                    )
+
+                    if magnitude is not None and not pd.isna(magnitude):
+                        magnitude = float(magnitude)
+
+                        if magnitude <= 4:
+                            reason_parts.append("밝은 천체")
+
+                        elif magnitude <= 6:
+                            reason_parts.append("비교적 밝은 천체")
+
+                    # ==================================
+                    # 달 상태
+                    # ==================================
+
+                    moon_brightness = item.get(
+                        "최적 시각 달 밝기 %",
+                        None,
+                    )
+
+                    moon_altitude = item.get(
+                        "최적 시각 달 고도 °",
+                        None,
+                    )
+
+                    moon_separation = item.get(
+                        "달과 각거리 °",
+                        None,
+                    )
+
+                    moon_data_valid = (
+                        moon_brightness is not None
+                        and moon_altitude is not None
+                        and moon_separation is not None
+                        and not pd.isna(moon_brightness)
+                        and not pd.isna(moon_altitude)
+                        and not pd.isna(moon_separation)
+                    )
+
+                    if moon_data_valid:
+
+                        moon_brightness = float(moon_brightness)
+
+                        moon_altitude = float(moon_altitude)
+
+                        moon_separation = float(moon_separation)
+
+                        if moon_altitude <= 0:
+                            reason_parts.append("달 지평선 아래")
+
+                        elif moon_brightness < 25:
+                            reason_parts.append("달빛 약함")
+
+                        elif moon_separation >= 70:
+                            reason_parts.append("달과 멀리 떨어짐")
+
+                        elif moon_separation < 40 and moon_brightness >= 40:
+                            warning_parts.append("달과 가까워 대비 저하 가능")
+
+                        elif moon_brightness >= 60 and moon_separation < 70:
+                            warning_parts.append("밝은 달 영향 있음")
+
+                # ==================================
+                # 목성 / 토성
+                # ==================================
+
+                elif item["분류"] == "행성":
                     reason_parts.append("행성 관측에 유리")
 
                 if reason_parts:
                     st.write("💡 추천 이유 : " + " · ".join(reason_parts))
+
+                if warning_parts:
+                    st.write("⚠️ 주의 : " + " · ".join(warning_parts))
 
                 st.write(f"🔭 종류 : " f"{item['종류']}")
 

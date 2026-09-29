@@ -870,6 +870,11 @@ class AstronomyEngine:
             dtype=float,
         )
 
+        cloud_values = np.asarray(
+            [float(item.get("cloud", np.nan)) for item in weather_timeline],
+            dtype=float,
+        )
+
         sky_times = self.ts.from_datetimes(times)
         observer_at = self.observer.at(sky_times)
 
@@ -956,8 +961,33 @@ class AstronomyEngine:
                 best_alt_text = "-"
                 best_direction = "-"
                 window_text = "-"
+
+                best_cloud = np.nan
+                best_moon_brightness = np.nan
+                best_moon_altitude = np.nan
+                best_moon_separation = np.nan
+
             else:
                 best_idx = int(np.argmax(final_scores))
+                best_cloud = round(
+                    float(cloud_values[best_idx]),
+                    1,
+                )
+
+                best_moon_brightness = round(
+                    float(moon_illumination[best_idx]),
+                    1,
+                )
+
+                best_moon_altitude = round(
+                    float(moon_alt[best_idx]),
+                    1,
+                )
+
+                best_moon_separation = round(
+                    float(separation[best_idx]),
+                    1,
+                )
                 best_score = round(float(final_scores[best_idx]))
                 best_time_text = times[best_idx].strftime("%H:%M")
                 best_alt_text = round(float(alt[best_idx]), 1)
