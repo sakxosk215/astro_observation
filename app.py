@@ -1679,7 +1679,6 @@ def hourly_weather_score(row):
 
     # 실제 관측에 가장 방해가 되는 구름층 기준
     effective_cloud = max(
-
         row["전체구름"],
         row["하층구름"],
         row["중층구름"] * 0.95,
@@ -1690,7 +1689,6 @@ def hourly_weather_score(row):
         0,
         100 - row["강수확률"] * 1.5,
     )
-
 
     visibility_km = row["시정"] / 1000
 
@@ -2302,23 +2300,54 @@ a.anchor-link {
     # ======================================
 
     # 기본 달 감점
-       # 달 밝기와 달이 떠 있는 시간을 이용한
+    # 달 밝기와 달이 떠 있는 시간을 이용한
     # 최종 점수 상한 적용
+
+    def apply_moon_score_cap(row):
+
+        score = row["관측 점수"]
+
+        penalty = row["달 감점"]
+        brightness = row["달 밝기 %"]
+        moon_up_ratio = row["달 떠있는 시간 %"]
+
+        # 밝은 달이 밤 대부분 떠 있음
+        if brightness >= 70 and moon_up_ratio >= 60:
+            score = min(score, 55)
+
+        # 밝은 달이 밤 절반 정도 떠 있음
+        elif brightness >= 60 and moon_up_ratio >= 40:
+            score = min(score, 60)
+
+        # 밝은 달이 밤 일부 떠 있음
+        elif brightness >= 60 and moon_up_ratio >= 25:
+            score = min(score, 65)
+
+        # 기존 달 감점 기준
+        elif penalty > 15:
+            score = min(score, 60)
+
+        elif penalty > 9:
+            score = min(score, 68)
+
+        elif penalty > 4:
+            score = min(score, 82)
+
+        return score
+
     weekly_df["관측 점수"] = weekly_df.apply(
         apply_moon_score_cap,
         axis=1,
     )
 
-    weekly_df["관측 점수"] = (
-        weekly_df["관측 점수"]
-        .clip(0, 100)
-        .round()
-        .astype(int)
+    weekly_df["관측 점수"] = weekly_df.apply(
+        apply_moon_score_cap,
+        axis=1,
     )
 
-    weekly_df["등급"] = weekly_df[
-        "관측 점수"
-    ].apply(weather_score_grade)
+    weekly_df["관측 점수"] = weekly_df["관측 점수"].clip(0, 100).round().astype(int)
+
+    weekly_df["등급"] = weekly_df["관측 점수"].apply(weather_score_grade)
     # ======================================
     # 7일 관측 요약 카드
     # ======================================
@@ -2475,6 +2504,7 @@ a.anchor-link {
         "관측 점수",
         "등급",
         "달 영향",
+        "달 떠있는 시간 %", 
         "달 감점",
         "달 밝기 %",
         "달 고도 °",
