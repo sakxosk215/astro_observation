@@ -3375,10 +3375,39 @@ a.anchor-link {
         }
 
         @media (max-width: 650px) {
-            .weekly-card-grid {
-                grid-template-columns: 1fr;
-            }
-        }
+
+    .weekly-card-grid {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+
+        gap: 8px;
+    }
+
+    .weekly-card {
+        padding: 11px 8px;
+    }
+
+    .weekly-card-date {
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    .weekly-card-score {
+        font-size: 24px;
+    }
+
+    .weekly-card-grade {
+        font-size: 12px;
+    }
+
+    .weekly-card-info {
+        font-size: 11px;
+        line-height: 1.5;
+    }
+}
         </style>
         """,
         unsafe_allow_html=True,
@@ -5009,11 +5038,10 @@ a.anchor-link {
         f' · {moon["상태"]}'
         "</div>"
         '<div class="moon-rise-set-line">'
-        f'🌙 월출 <b>{moonrise_text}</b>'
-        f' &nbsp;·&nbsp; '
-        f'🌑 월몰 <b>{moonset_text}</b>'
+        f"🌙 월출 <b>{moonrise_text}</b>"
+        f" &nbsp;·&nbsp; "
+        f"🌑 월몰 <b>{moonset_text}</b>"
         "</div>"
-    
     )
 
     st.markdown(moon_html, unsafe_allow_html=True)
