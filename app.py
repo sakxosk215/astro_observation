@@ -1899,44 +1899,73 @@ def cloud_cell_style(value):
     )
 
 
-def moon_observation_penalty(brightness, altitude):
+def moon_observation_penalty(
+    brightness,
+    altitude,
+):
 
     if pd.isna(brightness) or pd.isna(altitude):
         return 0
 
+    # ======================================
     # 달이 지평선 아래면 영향 없음
+    # ======================================
+
     if altitude <= 0:
         return 0
 
-    # 달 밝기에 따른 기본 감점
-    if brightness < 20:
-        base_penalty = 0
+    # ======================================
+    # 달이 떠 있는 것 자체에 기본 감점
+    # ======================================
+
+    presence_penalty = 3
+
+    # ======================================
+    # 달 밝기에 따른 추가 감점
+    # ======================================
+
+    if brightness < 10:
+        brightness_penalty = 0
+
+    elif brightness < 20:
+        brightness_penalty = 2
 
     elif brightness < 40:
-        base_penalty = 4
+        brightness_penalty = 5
 
     elif brightness < 60:
-        base_penalty = 8
+        brightness_penalty = 9
 
     elif brightness < 80:
-        base_penalty = 14
+        brightness_penalty = 14
 
     else:
-        base_penalty = 20
+        brightness_penalty = 20
 
-    # 달 고도에 따른 영향
-    if altitude < 15:
-        altitude_factor = 0.4
+    # ======================================
+    # 달 고도
+    #
+    # 높이 떠 있을수록 영향 증가
+    # ======================================
+
+    if altitude < 10:
+        altitude_factor = 0.5
+
+    elif altitude < 20:
+        altitude_factor = 0.7
 
     elif altitude < 30:
-        altitude_factor = 0.7
+        altitude_factor = 0.85
 
     else:
         altitude_factor = 1.0
 
-    penalty = base_penalty * altitude_factor
+    penalty = (presence_penalty + brightness_penalty) * altitude_factor
 
-    return round(penalty, 1)
+    return round(
+        penalty,
+        1,
+    )
 
 
 def calculate_night_moon_effect(engine, night_df):
@@ -2402,15 +2431,15 @@ def build_weekly_forecast(weather, engine):
             night,
         )
 
-        moon_brightness = moon_effect["brightness"]
+        night_moon_brightness = moon_effect["brightness"]
 
-        moon_altitude = moon_effect["altitude"]
+        night_moon_altitude = moon_effect["altitude"]
 
         moon_penalty = moon_effect["penalty"]
 
         moon_up_ratio = moon_effect["moon_up_ratio"]
 
-        moon_status = moon_effect["status"]
+        night_moon_status = moon_effect["status"]
 
         # ==================================
         # 날씨 + 달을 고려한 최적 관측 구간
@@ -2431,29 +2460,59 @@ def build_weekly_forecast(weather, engine):
 
             weather_hour_score = float(hour_info["score"])
 
-            # 해당 30분 시점의 달 상태
+            # ==================================
+            # 해당 시간의 달 상태
+            # ==================================
+
             hour_moon_info = engine.get_moon_at_time(observation_time)
 
             hour_moon_brightness = float(hour_moon_info["밝기"])
 
             hour_moon_altitude = float(hour_moon_info["고도"])
 
-            # 희미한 천체 관측 기준
-            # 달 밝기 25% 이상이며
-            # 지평선 위에 있으면 추천 구간에서 제외
-            bright_moon_up = hour_moon_brightness >= 25 and hour_moon_altitude > 0
+            # ==================================
+            # 관측 가능 조건
+            #
+            # 1. 시간별 날씨 점수 65점 이상
+            # 2. 달이 지평선 아래
+            # ==================================
 
-            # 날씨 점수 65점 이상이며
-            # 밝은 달이 없어야 추천
-            usable = weather_hour_score >= 65 and not bright_moon_up
+            weather_ok = weather_hour_score >= 65
+
+            moonless = hour_moon_altitude <= 0
+
+            usable = weather_ok and moonless
 
             observation_hours.append(
                 {
                     "time": observation_time,
                     "score": weather_hour_score,
+                    "moon_brightness": (hour_moon_brightness),
+                    "moon_altitude": (hour_moon_altitude),
+                    "weather_ok": weather_ok,
+                    "moonless": moonless,
                     "usable": usable,
                 }
             )
+
+            # ==================================
+        # 희미한 천체 관측 기준
+        #
+        # 달 밝기와 관계없이
+        # 달이 지평선 위에 있으면
+        # 최적 관측시간에서 제외
+        # ==================================
+
+        moon_is_up = hour_moon_altitude > 0
+
+        usable = weather_hour_score >= 65 and not moon_is_up
+        observation_hours.append(
+            {
+                "time": observation_time,
+                "score": weather_hour_score,
+                "usable": usable,
+            }
+        )
 
         # ==================================
         # 30분 단위 연속 관측 가능 구간 찾기
@@ -2561,17 +2620,16 @@ def build_weekly_forecast(weather, engine):
         # ==================================
         # 실제 최적 관측 시간의 달 상태
         # ==================================
+        best_moon_info = engine.get_moon_at_time(best_time)
 
-        moon_info = engine.get_moon_at_time(best_time)
+        best_moon_brightness = best_moon_info["밝기"]
+        best_moon_altitude = best_moon_info["고도"]
 
-        moon_brightness = moon_info["밝기"]
-        moon_altitude = moon_info["고도"]
+        if best_moon_altitude < 0:
+            best_moon_status = "🌑 지평선 아래"
 
-        if moon_altitude < 0:
-            moon_status = "🌑 지평선 아래"
         else:
-            moon_status = "🌙 떠 있음"
-
+            best_moon_status = "🌙 떠 있음"
         # ==================================
         # 밤 시간 평균값 계산
         # ==================================
@@ -2597,9 +2655,9 @@ def build_weekly_forecast(weather, engine):
                 "천문박명 시작": astro_end.strftime("%H:%M"),
                 "관측 점수": score,
                 "등급": grade,
-                "달 밝기 %": moon_brightness,
-                "달 고도 °": moon_altitude,
-                "달 상태": moon_status,
+                "달 밝기 %": night_moon_brightness,
+                "달 고도 °": night_moon_altitude,
+                "달 상태": night_moon_status,
                 "달 감점": moon_penalty,
                 "달 떠있는 시간 %": moon_up_ratio,
                 "최적 시간": best_time_range,
@@ -2802,6 +2860,76 @@ def build_half_hour_weather_timeline(night_df):
     ]
 
 
+def apply_timeline_moon_cap(
+    score,
+    brightness,
+    altitude,
+):
+    score = float(score)
+    brightness = float(brightness)
+    altitude = float(altitude)
+
+    # 달이 지평선 아래면 점수 제한 없음
+    if altitude <= 0:
+        return round(max(0, min(100, score)))
+
+    # 매우 밝은 달
+    if brightness >= 70:
+
+        if altitude >= 30:
+            cap = 44
+
+        elif altitude >= 15:
+            cap = 54
+
+        else:
+            cap = 64
+
+    # 중간 밝기의 달
+    elif brightness >= 40:
+
+        if altitude >= 30:
+            cap = 54
+
+        elif altitude >= 15:
+            cap = 64
+
+        else:
+            cap = 74
+
+    # 비교적 어두운 달
+    elif brightness >= 20:
+
+        if altitude >= 30:
+            cap = 64
+
+        elif altitude >= 15:
+            cap = 74
+
+        else:
+            cap = 79
+
+    # 매우 얇은 달
+    else:
+
+        if altitude >= 30:
+            cap = 74
+
+        else:
+            cap = 84
+
+    return round(
+        max(
+            0,
+            min(
+                100,
+                score,
+                cap,
+            ),
+        )
+    )
+
+
 def timeline_observation_status(score):
 
     score = float(score)
@@ -2820,6 +2948,106 @@ def timeline_observation_status(score):
 
     else:
         return "🔴 관측 비추천"
+
+
+def apply_timeline_moon_cap(
+    score,
+    brightness,
+    altitude,
+):
+
+    score = float(score)
+    brightness = float(brightness)
+    altitude = float(altitude)
+
+    # 달이 지평선 아래면 점수 제한 없음
+    if altitude <= 0:
+
+        return round(
+            max(
+                0,
+                min(
+                    100,
+                    score,
+                ),
+            )
+        )
+
+    # 매우 밝은 달
+    if brightness >= 70:
+
+        if altitude >= 30:
+            cap = 44
+
+        elif altitude >= 15:
+            cap = 54
+
+        else:
+            cap = 64
+
+    # 중간 밝기의 달
+    elif brightness >= 40:
+
+        if altitude >= 30:
+            cap = 54
+
+        elif altitude >= 15:
+            cap = 64
+
+        else:
+            cap = 74
+
+    # 비교적 어두운 달
+    elif brightness >= 20:
+
+        if altitude >= 30:
+            cap = 64
+
+        elif altitude >= 15:
+            cap = 74
+
+        else:
+            cap = 79
+
+    # 매우 얇은 달
+    else:
+
+        if altitude >= 30:
+            cap = 74
+
+        else:
+            cap = 84
+
+    return round(
+        max(
+            0,
+            min(
+                100,
+                score,
+                cap,
+            ),
+        )
+    )
+
+
+def get_main_timeline_rows(
+    timeline_rows,
+):
+
+    now = datetime.now(KST).replace(tzinfo=None)
+
+    rows = [
+        item
+        for item in timeline_rows
+        if (item["_datetime"].minute == 0 and item["_datetime"] >= now)
+    ]
+
+    rows = sorted(
+        rows,
+        key=lambda item: item["_datetime"],
+    )
+
+    return rows[:6]
 
 
 # ==========================================
@@ -3576,15 +3804,12 @@ a.anchor-link {
                     moon_altitude,
                 )
 
-                # 날씨 + 달빛 최종 시간 점수
-                final_score = round(
-                    max(
-                        0,
-                        min(
-                            100,
-                            weather_score - moon_penalty,
-                        ),
-                    )
+                final_score = weather_score - moon_penalty
+
+                final_score = apply_timeline_moon_cap(
+                    final_score,
+                    moon_brightness,
+                    moon_altitude,
                 )
 
                 status = timeline_observation_status(final_score)
@@ -3607,17 +3832,13 @@ a.anchor-link {
                     }
                 )
 
-        # ======================================
+                # ======================================
         # 화면 출력
         # ======================================
 
         if timeline_rows:
 
-            st.caption(
-                "천문박명 종료 후부터 "
-                "다음 날 천문박명 시작 전까지의 "
-                "1시간 단위 예상 조건입니다."
-            )
+            st.caption("현재 이후의 관측 조건을 " "1시간 단위로 최대 6개 표시합니다.")
 
             # ======================================
             # 타임라인 카드 스타일
@@ -3626,6 +3847,10 @@ a.anchor-link {
             st.markdown(
                 """
                 <style>
+
+                /* ==============================
+                   메인 6개 타임라인
+                   ============================== */
 
                 .observation-timeline-grid {
                     display: grid;
@@ -3639,14 +3864,43 @@ a.anchor-link {
                     gap: 10px;
 
                     margin-top: 12px;
-                    margin-bottom: 18px;
+                    margin-bottom: 14px;
                 }
 
+
+                /* ==============================
+                   전체 시간 타임라인
+                   ============================== */
+
+                .observation-timeline-full-grid {
+                    display: grid;
+
+                    grid-template-columns:
+                        repeat(
+                            4,
+                            minmax(0, 1fr)
+                        );
+
+                    gap: 10px;
+
+                    margin-top: 12px;
+                    margin-bottom: 12px;
+                }
+
+
+                /* ==============================
+                   공통 카드
+                   ============================== */
 
                 .observation-timeline-card {
                     border:
                         1px solid
-                        rgba(128, 128, 128, 0.30);
+                        rgba(
+                            128,
+                            128,
+                            128,
+                            0.30
+                        );
 
                     border-radius: 14px;
 
@@ -3658,7 +3912,12 @@ a.anchor-link {
 
                     box-shadow:
                         0 2px 7px
-                        rgba(0, 0, 0, 0.06);
+                        rgba(
+                            0,
+                            0,
+                            0,
+                            0.06
+                        );
                 }
 
 
@@ -3677,6 +3936,8 @@ a.anchor-link {
                     font-weight: 700;
 
                     margin-bottom: 8px;
+
+                    white-space: nowrap;
                 }
 
 
@@ -3698,7 +3959,10 @@ a.anchor-link {
                 }
 
 
-                /* 매우 좋음 */
+                /* ==============================
+                   점수별 카드 색상
+                   ============================== */
+
                 .timeline-blue {
                     border-left:
                         5px solid
@@ -3714,7 +3978,6 @@ a.anchor-link {
                 }
 
 
-                /* 좋음 */
                 .timeline-green {
                     border-left:
                         5px solid
@@ -3730,7 +3993,6 @@ a.anchor-link {
                 }
 
 
-                /* 관측 가능 */
                 .timeline-yellow {
                     border-left:
                         5px solid
@@ -3746,7 +4008,6 @@ a.anchor-link {
                 }
 
 
-                /* 관측 주의 */
                 .timeline-orange {
                     border-left:
                         5px solid
@@ -3762,7 +4023,6 @@ a.anchor-link {
                 }
 
 
-                /* 관측 비추천 */
                 .timeline-red {
                     border-left:
                         5px solid
@@ -3778,9 +4038,13 @@ a.anchor-link {
                 }
 
 
+                /* ==============================
+                   태블릿
+                   ============================== */
+
                 @media (max-width: 1000px) {
 
-                    .observation-timeline-grid {
+                    .observation-timeline-full-grid {
                         grid-template-columns:
                             repeat(
                                 3,
@@ -3791,9 +4055,14 @@ a.anchor-link {
                 }
 
 
+                /* ==============================
+                   모바일
+                   ============================== */
+
                 @media (max-width: 768px) {
 
-                    .observation-timeline-grid {
+                    .observation-timeline-grid,
+                    .observation-timeline-full-grid {
                         grid-template-columns:
                             repeat(
                                 2,
@@ -3836,92 +4105,118 @@ a.anchor-link {
             )
 
             # ======================================
-            # 타임라인 카드 HTML 생성
+            # 카드 HTML 생성 함수
             # ======================================
 
-            timeline_html = '<div class="observation-timeline-grid">'
+            def build_timeline_card_html(
+                rows,
+                grid_class,
+            ):
 
+                html = f'<div class="{grid_class}">'
+
+                for item in rows:
+
+                    score = int(item["관측 점수"])
+
+                    if score >= 90:
+                        status_class = "timeline-blue"
+
+                    elif score >= 80:
+                        status_class = "timeline-green"
+
+                    elif score >= 65:
+                        status_class = "timeline-yellow"
+
+                    elif score >= 45:
+                        status_class = "timeline-orange"
+
+                    else:
+                        status_class = "timeline-red"
+
+                    html += (
+                        f'<div class="'
+                        f"observation-timeline-card "
+                        f"{status_class}"
+                        f'">'
+                        f'<div class="'
+                        f"timeline-time"
+                        f'">'
+                        f'{item["시간"]}'
+                        f"</div>"
+                        f'<div class="'
+                        f"timeline-status"
+                        f'">'
+                        f'{item["상태"]}'
+                        f"</div>"
+                        f'<div class="'
+                        f"timeline-score"
+                        f'">'
+                        f"{score}점"
+                        f"</div>"
+                        f'<div class="'
+                        f"timeline-info"
+                        f'">'
+                        f"☁️ 구름 "
+                        f'{item["구름 %"]}%'
+                        f"<br>"
+                        f"🌙 달 "
+                        f'{item["달"]}'
+                        f"</div>"
+                        f"</div>"
+                    )
+
+                html += "</div>"
+
+                return html
+
+                # ======================================
+
+            # 메인 6개 자동 갱신
             # ======================================
-            # 메인 화면은 1시간 간격으로만 표시
-            # 실제 계산은 기존 30분 단위 유지
-            # ======================================
 
-            # ======================================
-            # 현재 시각 이후의 정각 카드만 표시
-            # 최대 6개
-            # ======================================
+            @st.fragment(run_every="1min")
+            def render_live_timeline():
 
-            timeline_now = datetime.now(KST).replace(tzinfo=None)
+                display_timeline_rows = get_main_timeline_rows(timeline_rows)
 
-            display_timeline_rows = [
-                item
-                for item in timeline_rows
-                if (item["_datetime"].minute == 0 and item["_datetime"] >= timeline_now)
-            ]
+                if display_timeline_rows:
 
-            # 가까운 시간부터 정렬
-            display_timeline_rows = sorted(
-                display_timeline_rows,
-                key=lambda item: item["_datetime"],
-            )
+                    main_timeline_html = build_timeline_card_html(
+                        display_timeline_rows,
+                        ("observation-" "timeline-grid"),
+                    )
 
-            # 화면에는 최대 6개만 표시
-            display_timeline_rows = display_timeline_rows[:6]
-
-            for item in display_timeline_rows:
-
-                score = int(item["관측 점수"])
-
-                if score >= 90:
-
-                    status_class = "timeline-blue"
-
-                elif score >= 80:
-
-                    status_class = "timeline-green"
-
-                elif score >= 65:
-
-                    status_class = "timeline-yellow"
-
-                elif score >= 45:
-
-                    status_class = "timeline-orange"
+                    st.markdown(
+                        main_timeline_html,
+                        unsafe_allow_html=True,
+                    )
 
                 else:
 
-                    status_class = "timeline-red"
+                    st.info("현재 이후 남아 있는 " "관측 시간이 없습니다.")
 
-                timeline_html += (
-                    f'<div class="'
-                    f"observation-timeline-card "
-                    f"{status_class}"
-                    f'">'
-                    f'<div class="timeline-time">'
-                    f'{item["시간"]}'
-                    f"</div>"
-                    f'<div class="timeline-status">'
-                    f'{item["상태"]}'
-                    f"</div>"
-                    f'<div class="timeline-score">'
-                    f"{score}점"
-                    f"</div>"
-                    f'<div class="timeline-info">'
-                    f"☁️ 구름 "
-                    f'{item["구름 %"]}%'
-                    f"<br>"
-                    f"🌙 달 "
-                    f'{item["달"]}'
-                    f"</div>"
-                    f"</div>"
+            render_live_timeline()
+            # ======================================
+            # 전체 시간 보기
+            # ======================================
+
+            with st.expander(
+                "📋 전체 시간 보기",
+                expanded=False,
+            ):
+
+                st.caption("오늘 밤 천문박명 구간 전체를 " "30분 단위로 표시합니다.")
+
+                full_timeline_html = build_timeline_card_html(
+                    timeline_rows,
+                    ("observation-" "timeline-full-grid"),
                 )
 
-            timeline_html += "</div>"
-
-            st.markdown(
-                timeline_html,
-                unsafe_allow_html=True,
-            )
+                st.markdown(
+                    full_timeline_html,
+                    unsafe_allow_html=True,
+                )
 
         else:
 
