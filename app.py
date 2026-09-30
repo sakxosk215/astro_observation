@@ -3893,6 +3893,7 @@ a.anchor-link {
                    ============================== */
 
                 .observation-timeline-card {
+                    position: relative;
                     border:
                         1px solid
                         rgba(
@@ -3919,8 +3920,54 @@ a.anchor-link {
                             0.06
                         );
                 }
+                
+                .timeline-recommend-badge {
+    position: absolute;
 
+    top: 8px;
+    right: 8px;
 
+    padding: 3px 7px;
+
+    border-radius: 999px;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    background:
+        rgba(
+            255,
+            193,
+            7,
+            0.18
+        );
+
+    border:
+        1px solid
+        rgba(
+            255,
+            193,
+            7,
+            0.55
+        );
+
+    white-space: nowrap;
+}
+
+                .timeline-recommend-reason {
+    font-size: 11px;
+    font-weight: 700;
+
+    margin-top: -2px;
+    margin-bottom: 7px;
+
+    opacity: 0.85;
+}
+
+                .timeline-past {
+    opacity: 0.38;
+}               
+ 
                 .timeline-time {
                     font-size: 19px;
 
@@ -4111,34 +4158,127 @@ a.anchor-link {
             def build_timeline_card_html(
                 rows,
                 grid_class,
+                show_recommendation=False,
+                dim_past=False,
             ):
 
                 html = f'<div class="{grid_class}">'
+
+                # ==================================
+                # 추천 카드 선택
+                # ==================================
+
+                recommended_time = None
+
+                if show_recommendation and rows:
+
+                    recommended_item = max(
+                        rows,
+                        key=lambda item: (item["관측 점수"]),
+                    )
+
+                    recommended_time = recommended_item["_datetime"]
+
+                # ==================================
+                # 카드 생성
+                # ==================================
 
                 for item in rows:
 
                     score = int(item["관측 점수"])
 
+                    # ==================================
+                    # 지난 시간 카드 흐리게 표시
+                    # ==================================
+
+                    past_class = ""
+
+                    if dim_past:
+
+                        current_time = datetime.now(KST).replace(tzinfo=None)
+
+                        if item["_datetime"] < current_time:
+
+                            past_class = " timeline-past"
+
+                    # ==================================
+                    # 점수별 카드 색상
+                    # ==================================
+
                     if score >= 90:
+
                         status_class = "timeline-blue"
 
                     elif score >= 80:
+
                         status_class = "timeline-green"
 
                     elif score >= 65:
+
                         status_class = "timeline-yellow"
 
                     elif score >= 45:
+
                         status_class = "timeline-orange"
 
                     else:
+
                         status_class = "timeline-red"
+
+                    # ==================================
+                    # 추천 배지 + 추천 이유
+                    # ==================================
+
+                    recommend_badge = ""
+                    recommend_reason = ""
+
+                    if show_recommendation and item["_datetime"] == recommended_time:
+
+                        recommend_badge = (
+                            '<div class="'
+                            "timeline-recommend-badge"
+                            '">'
+                            "⭐ 추천"
+                            "</div>"
+                        )
+
+                    if "지평선 아래" in item["달"] and item["구름 %"] <= 10:
+
+                        recommend_reason = (
+                            '<div class="'
+                            "timeline-recommend-reason"
+                            '">'
+                            "⭐ 달 없음 · 맑음"
+                            "</div>"
+                        )
+
+                    elif "지평선 아래" in item["달"]:
+
+                        recommend_reason = (
+                            '<div class="'
+                            "timeline-recommend-reason"
+                            '">'
+                            "⭐ 달 없음"
+                            "</div>"
+                        )
+
+                    elif item["구름 %"] <= 10:
+
+                        recommend_reason = (
+                            '<div class="'
+                            "timeline-recommend-reason"
+                            '">'
+                            "⭐ 맑음"
+                            "</div>"
+                        )
 
                     html += (
                         f'<div class="'
                         f"observation-timeline-card "
                         f"{status_class}"
+                        f"{past_class}"
                         f'">'
+                        f"{recommend_badge}"
                         f'<div class="'
                         f"timeline-time"
                         f'">'
@@ -4154,6 +4294,7 @@ a.anchor-link {
                         f'">'
                         f"{score}점"
                         f"</div>"
+                        f"{recommend_reason}"
                         f'<div class="'
                         f"timeline-info"
                         f'">'
@@ -4185,6 +4326,7 @@ a.anchor-link {
                     main_timeline_html = build_timeline_card_html(
                         display_timeline_rows,
                         ("observation-" "timeline-grid"),
+                        show_recommendation=True,
                     )
 
                     st.markdown(
@@ -4209,8 +4351,7 @@ a.anchor-link {
                 st.caption("오늘 밤 천문박명 구간 전체를 " "30분 단위로 표시합니다.")
 
                 full_timeline_html = build_timeline_card_html(
-                    timeline_rows,
-                    ("observation-" "timeline-full-grid"),
+                    timeline_rows, ("observation-" "timeline-full-grid"), dim_past=True
                 )
 
                 st.markdown(
@@ -4721,6 +4862,35 @@ a.anchor-link {
 
     moon = engine.get_moon()
 
+    moon_rise_set = engine.get_moon_rise_set()
+
+    moonrise = moon_rise_set["월출"]
+    moonset = moon_rise_set["월몰"]
+
+    today_date = datetime.now(KST).date()
+
+    if moonrise is not None:
+
+        if moonrise.date() == today_date:
+            moonrise_text = moonrise.strftime("%H:%M")
+
+        else:
+            moonrise_text = moonrise.strftime("%m/%d %H:%M")
+
+    else:
+        moonrise_text = "-"
+
+    if moonset is not None:
+
+        if moonset.date() == today_date:
+            moonset_text = moonset.strftime("%H:%M")
+
+        else:
+            moonset_text = moonset.strftime("%m/%d %H:%M")
+
+    else:
+        moonset_text = "-"
+
     st.markdown(
         """
         <style>
@@ -4763,6 +4933,17 @@ a.anchor-link {
             margin-bottom: 10px;
         }
 
+                .moon-rise-set-line {
+            text-align: center;
+
+            font-size: 14px;
+            font-weight: 600;
+
+            padding: 4px 6px 10px 6px;
+
+            opacity: 0.9;
+        }
+
         @media (max-width: 768px) {
 
             .moon-grid {
@@ -4783,6 +4964,10 @@ a.anchor-link {
             }
 
             .moon-phase-card {
+                font-size: 13px;
+            }
+
+                        .moon-rise-set-line {
                 font-size: 13px;
             }
         }
@@ -4823,6 +5008,12 @@ a.anchor-link {
         f' · 위상각 {moon["위상각"]:.1f}°'
         f' · {moon["상태"]}'
         "</div>"
+        '<div class="moon-rise-set-line">'
+        f'🌙 월출 <b>{moonrise_text}</b>'
+        f' &nbsp;·&nbsp; '
+        f'🌑 월몰 <b>{moonset_text}</b>'
+        "</div>"
+    
     )
 
     st.markdown(moon_html, unsafe_allow_html=True)

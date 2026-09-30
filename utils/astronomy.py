@@ -501,6 +501,62 @@ class AstronomyEngine:
             "방위각": round(azimuth.degrees, 1),
         }
 
+        def get_moon_rise_set(self):
+
+            now = datetime.now(KST)
+
+        # 오늘 낮 12시부터
+        # 다음 날 낮 12시까지 검색
+        search_start = now.replace(
+            hour=12,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        search_end = search_start + timedelta(days=1)
+
+        t0 = self.ts.from_datetime(search_start)
+
+        t1 = self.ts.from_datetime(search_end)
+
+        moon_up_function = almanac.risings_and_settings(
+            self.eph,
+            self.moon,
+            self.topos,
+        )
+
+        times, events = almanac.find_discrete(
+            t0,
+            t1,
+            moon_up_function,
+        )
+
+        moonrise = None
+        moonset = None
+
+        for t, event in zip(
+            times,
+            events,
+        ):
+
+            local_time = t.astimezone(KST)
+
+            if bool(event):
+
+                if moonrise is None:
+                    moonrise = local_time
+
+            else:
+
+                if moonset is None:
+                    moonset = local_time
+
+        return {
+            "월출": moonrise,
+            "월몰": moonset,
+        }
+
     def get_moon(self):
         now = datetime.now(KST)
         t = self.ts.from_datetime(now)
@@ -534,6 +590,84 @@ class AstronomyEngine:
             "상태": status,
             "달빛영향": moonlight_effect(illumination, alt),
         }
+
+        return {
+            "고도": round(alt, 1),
+            "방위각": round(az, 1),
+            "방향": azimuth_to_direction(az),
+            "거리_km": round(distance.km),
+            "밝기": round(illumination, 1),
+            "위상각": round(phase_angle, 1),
+            "위상": moon_phase_name(phase_angle),
+            "상태": status,
+            "달빛영향": moonlight_effect(
+                illumination,
+                alt,
+            ),
+        }
+
+    def get_moon_rise_set(self):
+
+        now = datetime.now(KST)
+
+        search_start = now.replace(
+            hour=12,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        search_end = search_start + timedelta(days=1)
+
+        t0 = self.ts.from_datetime(search_start)
+
+        t1 = self.ts.from_datetime(search_end)
+
+        moon_up_function = almanac.risings_and_settings(
+            self.eph,
+            self.moon,
+            self.topos,
+        )
+
+        times, events = almanac.find_discrete(
+            t0,
+            t1,
+            moon_up_function,
+        )
+
+        moonrise = None
+        moonset = None
+
+        for t, event in zip(
+            times,
+            events,
+        ):
+
+            local_time = t.astimezone(KST)
+
+            if bool(event):
+
+                if moonrise is None:
+                    moonrise = local_time
+
+            else:
+
+                if moonset is None:
+                    moonset = local_time
+
+        return {
+            "월출": moonrise,
+            "월몰": moonset,
+        }
+
+    @staticmethod
+    def _ensure_kst(dt):
+
+        if dt.tzinfo is None:
+
+            return dt.replace(tzinfo=KST)
+
+        return dt.astimezone(KST)
 
     @staticmethod
     def _ensure_kst(dt):
