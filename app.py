@@ -3598,6 +3598,7 @@ a.anchor-link {
 
                 timeline_rows.append(
                     {
+                        "_datetime": observation_time,
                         "시간": (observation_time.strftime("%H:%M")),
                         "관측 점수": (final_score),
                         "상태": status,
@@ -3631,7 +3632,7 @@ a.anchor-link {
 
                     grid-template-columns:
                         repeat(
-                            4,
+                            3,
                             minmax(0, 1fr)
                         );
 
@@ -3845,9 +3846,27 @@ a.anchor-link {
             # 실제 계산은 기존 30분 단위 유지
             # ======================================
 
+            # ======================================
+            # 현재 시각 이후의 정각 카드만 표시
+            # 최대 6개
+            # ======================================
+
+            timeline_now = datetime.now(KST).replace(tzinfo=None)
+
             display_timeline_rows = [
-                item for item in timeline_rows if item["시간"].endswith(":00")
+                item
+                for item in timeline_rows
+                if (item["_datetime"].minute == 0 and item["_datetime"] >= timeline_now)
             ]
+
+            # 가까운 시간부터 정렬
+            display_timeline_rows = sorted(
+                display_timeline_rows,
+                key=lambda item: item["_datetime"],
+            )
+
+            # 화면에는 최대 6개만 표시
+            display_timeline_rows = display_timeline_rows[:6]
 
             for item in display_timeline_rows:
 
