@@ -2801,6 +2801,24 @@ def build_half_hour_weather_timeline(night_df):
         for _, row in score_df.iterrows()
     ]
 
+def timeline_observation_status(score):
+
+    score = float(score)
+
+    if score >= 90:
+        return "🔵 매우 좋음"
+
+    elif score >= 80:
+        return "🟢 좋음"
+
+    elif score >= 65:
+        return "🟡 관측 가능"
+
+    elif score >= 45:
+        return "🟠 관측 주의"
+
+    else:
+        return "🔴 관측 비추천"
 
 # ==========================================
 # 앱 실행
@@ -3037,11 +3055,6 @@ a.anchor-link {
             score = min(score, 82)
 
         return score
-
-    weekly_df["관측 점수"] = weekly_df.apply(
-        apply_moon_score_cap,
-        axis=1,
-    )
 
     weekly_df["관측 점수"] = weekly_df.apply(
         apply_moon_score_cap,
