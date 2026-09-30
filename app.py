@@ -2801,6 +2801,7 @@ def build_half_hour_weather_timeline(night_df):
         for _, row in score_df.iterrows()
     ]
 
+
 def timeline_observation_status(score):
 
     score = float(score)
@@ -2819,6 +2820,7 @@ def timeline_observation_status(score):
 
     else:
         return "🔴 관측 비추천"
+
 
 # ==========================================
 # 앱 실행
@@ -3518,6 +3520,393 @@ a.anchor-link {
 
         st.markdown(night_summary_html, unsafe_allow_html=True)
 
+        # ======================================
+        # 오늘 밤 30분 단위 관측 타임라인
+        # ======================================
+
+        st.subheader("🌙 오늘 밤 관측 타임라인")
+
+        # 기존 시간별 날씨를 30분 단위로 보간
+        observation_timeline = build_half_hour_weather_timeline(night_df)
+
+        # ======================================
+        # 오늘 밤 천문박명 구간 계산
+        # ======================================
+
+        timeline_date = night_start.strftime("%Y-%m-%d")
+
+        astro_start, astro_end = engine.get_astronomical_night(timeline_date)
+
+        timeline_rows = []
+
+        if astro_start is not None and astro_end is not None:
+
+            # 날씨 데이터와 비교하기 위해
+            # timezone 제거
+            astro_start_naive = astro_start.replace(tzinfo=None)
+
+            astro_end_naive = astro_end.replace(tzinfo=None)
+
+            # ==================================
+            # 30분 단위 데이터 구성
+            # ==================================
+
+            for item in observation_timeline:
+
+                observation_time = item["time"]
+
+                # 완전히 어두운 천문박명 구간만 표시
+                if not (astro_start_naive <= observation_time <= astro_end_naive):
+                    continue
+
+                weather_score = float(item["score"])
+
+                cloud = float(item["cloud"])
+
+                # 해당 시각 달 상태
+                moon_info = engine.get_moon_at_time(observation_time)
+
+                moon_brightness = float(moon_info["밝기"])
+
+                moon_altitude = float(moon_info["고도"])
+
+                # 달빛 감점
+                moon_penalty = moon_observation_penalty(
+                    moon_brightness,
+                    moon_altitude,
+                )
+
+                # 날씨 + 달빛 최종 시간 점수
+                final_score = round(
+                    max(
+                        0,
+                        min(
+                            100,
+                            weather_score - moon_penalty,
+                        ),
+                    )
+                )
+
+                status = timeline_observation_status(final_score)
+
+                # 달 상태 표시
+                if moon_altitude <= 0:
+                    moon_text = "🌑 지평선 아래"
+
+                else:
+                    moon_text = f"{moon_brightness:.0f}%" f" / {moon_altitude:.0f}°"
+
+                timeline_rows.append(
+                    {
+                        "시간": (observation_time.strftime("%H:%M")),
+                        "관측 점수": (final_score),
+                        "상태": status,
+                        "구름 %": round(cloud),
+                        "달": moon_text,
+                    }
+                )
+
+        # ======================================
+        # 화면 출력
+        # ======================================
+
+        if timeline_rows:
+
+            st.caption(
+                "천문박명 종료 후부터 "
+                "다음 날 천문박명 시작 전까지의 "
+                "1시간 단위 예상 조건입니다."
+            )
+
+            # ======================================
+            # 타임라인 카드 스타일
+            # ======================================
+
+            st.markdown(
+                """
+                <style>
+
+                .observation-timeline-grid {
+                    display: grid;
+
+                    grid-template-columns:
+                        repeat(
+                            4,
+                            minmax(0, 1fr)
+                        );
+
+                    gap: 10px;
+
+                    margin-top: 12px;
+                    margin-bottom: 18px;
+                }
+
+
+                .observation-timeline-card {
+                    border:
+                        1px solid
+                        rgba(128, 128, 128, 0.30);
+
+                    border-radius: 14px;
+
+                    padding: 13px 11px;
+
+                    min-width: 0;
+
+                    text-align: center;
+
+                    box-shadow:
+                        0 2px 7px
+                        rgba(0, 0, 0, 0.06);
+                }
+
+
+                .timeline-time {
+                    font-size: 19px;
+
+                    font-weight: 800;
+
+                    margin-bottom: 7px;
+                }
+
+
+                .timeline-status {
+                    font-size: 14px;
+
+                    font-weight: 700;
+
+                    margin-bottom: 8px;
+                }
+
+
+                .timeline-score {
+                    font-size: 25px;
+
+                    font-weight: 800;
+
+                    margin-bottom: 8px;
+                }
+
+
+                .timeline-info {
+                    font-size: 12px;
+
+                    line-height: 1.65;
+
+                    opacity: 0.88;
+                }
+
+
+                /* 매우 좋음 */
+                .timeline-blue {
+                    border-left:
+                        5px solid
+                        #3b82f6;
+
+                    background:
+                        rgba(
+                            59,
+                            130,
+                            246,
+                            0.08
+                        );
+                }
+
+
+                /* 좋음 */
+                .timeline-green {
+                    border-left:
+                        5px solid
+                        #22c55e;
+
+                    background:
+                        rgba(
+                            34,
+                            197,
+                            94,
+                            0.08
+                        );
+                }
+
+
+                /* 관측 가능 */
+                .timeline-yellow {
+                    border-left:
+                        5px solid
+                        #eab308;
+
+                    background:
+                        rgba(
+                            234,
+                            179,
+                            8,
+                            0.08
+                        );
+                }
+
+
+                /* 관측 주의 */
+                .timeline-orange {
+                    border-left:
+                        5px solid
+                        #f97316;
+
+                    background:
+                        rgba(
+                            249,
+                            115,
+                            22,
+                            0.08
+                        );
+                }
+
+
+                /* 관측 비추천 */
+                .timeline-red {
+                    border-left:
+                        5px solid
+                        #ef4444;
+
+                    background:
+                        rgba(
+                            239,
+                            68,
+                            68,
+                            0.08
+                        );
+                }
+
+
+                @media (max-width: 1000px) {
+
+                    .observation-timeline-grid {
+                        grid-template-columns:
+                            repeat(
+                                3,
+                                minmax(0, 1fr)
+                            );
+                    }
+
+                }
+
+
+                @media (max-width: 768px) {
+
+                    .observation-timeline-grid {
+                        grid-template-columns:
+                            repeat(
+                                2,
+                                minmax(0, 1fr)
+                            );
+
+                        gap: 8px;
+                    }
+
+
+                    .observation-timeline-card {
+                        padding: 11px 7px;
+                    }
+
+
+                    .timeline-time {
+                        font-size: 17px;
+                    }
+
+
+                    .timeline-status {
+                        font-size: 12px;
+                    }
+
+
+                    .timeline-score {
+                        font-size: 22px;
+                    }
+
+
+                    .timeline-info {
+                        font-size: 11px;
+                    }
+
+                }
+
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # ======================================
+            # 타임라인 카드 HTML 생성
+            # ======================================
+
+            timeline_html = '<div class="observation-timeline-grid">'
+
+            # ======================================
+            # 메인 화면은 1시간 간격으로만 표시
+            # 실제 계산은 기존 30분 단위 유지
+            # ======================================
+
+            display_timeline_rows = [
+                item for item in timeline_rows if item["시간"].endswith(":00")
+            ]
+
+            for item in display_timeline_rows:
+
+                score = int(item["관측 점수"])
+
+                if score >= 90:
+
+                    status_class = "timeline-blue"
+
+                elif score >= 80:
+
+                    status_class = "timeline-green"
+
+                elif score >= 65:
+
+                    status_class = "timeline-yellow"
+
+                elif score >= 45:
+
+                    status_class = "timeline-orange"
+
+                else:
+
+                    status_class = "timeline-red"
+
+                timeline_html += (
+                    f'<div class="'
+                    f"observation-timeline-card "
+                    f"{status_class}"
+                    f'">'
+                    f'<div class="timeline-time">'
+                    f'{item["시간"]}'
+                    f"</div>"
+                    f'<div class="timeline-status">'
+                    f'{item["상태"]}'
+                    f"</div>"
+                    f'<div class="timeline-score">'
+                    f"{score}점"
+                    f"</div>"
+                    f'<div class="timeline-info">'
+                    f"☁️ 구름 "
+                    f'{item["구름 %"]}%'
+                    f"<br>"
+                    f"🌙 달 "
+                    f'{item["달"]}'
+                    f"</div>"
+                    f"</div>"
+                )
+
+            timeline_html += "</div>"
+
+            st.markdown(
+                timeline_html,
+                unsafe_allow_html=True,
+            )
+
+        else:
+
+            st.info("오늘 밤 관측 타임라인을 " "계산할 수 없습니다.")
         # ======================================
         # 오늘 밤 이슬 위험 요약
         # ======================================
