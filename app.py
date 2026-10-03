@@ -1748,6 +1748,7 @@ def get_weather(latitude, longitude):
     url = "https://api.open-meteo.com/v1/forecast"
 
     params = {
+        "models": "ecmwf_ifs",
         "latitude": latitude,
         "longitude": longitude,
         "timezone": "Asia/Seoul",
@@ -1758,6 +1759,7 @@ def get_weather(latitude, longitude):
             "relative_humidity_2m,"
             "cloud_cover,"
             "precipitation,"
+            "weather_code,"
             "wind_speed_10m,"
             "visibility"
         ),
@@ -2259,10 +2261,34 @@ def build_weekly_forecast(weather, engine):
 
     rows = []
 
-    # 화면에는 7일만 표시
+    # ======================================
+    # 7일 예보의 첫 관측 날짜 결정
+    #
+    # 자정 ~ 일출 전:
+    # 전날 저녁부터 시작된 관측 밤을 유지
+    #
+    # 일출 이후:
+    # 오늘 저녁부터 시작할 관측 밤 사용
+    # ======================================
+
+    now = datetime.now(KST)
+    now_naive = now.replace(tzinfo=None)
+
+    sunrise_today = datetime.fromisoformat(daily["sunrise"][0])
+
+    if now_naive < sunrise_today:
+        first_observation_date = now.date() - timedelta(days=1)
+
+    else:
+        first_observation_date = now.date()
+
+    # ======================================
+    # 화면에는 현재 관측 밤부터 7일 표시
+    # ======================================
+
     for i in range(7):
 
-        date = daily["time"][i]
+        date = (first_observation_date + timedelta(days=i)).isoformat()
 
         # ==================================
         # 정확한 천문학적 밤 계산
@@ -2295,7 +2321,7 @@ def build_weekly_forecast(weather, engine):
 
         if len(night) == 0:
             continue
-            # ==================================
+        # ==================================
         # 유효 구름량
         # ==================================
 
@@ -2343,18 +2369,7 @@ def build_weekly_forecast(weather, engine):
         # 최종 밤 점수
         # ==================================
 
-        # 밤 전체의 평균 유효 구름량
-        night_effective_cloud = pd.concat(
-            [
-                night["전체구름"],
-                night["하층구름"],
-                night["중층구름"] * 0.95,
-                night["상층구름"] * 0.85,
-            ],
-            axis=1,
-        ).max(axis=1)
-
-        average_effective_cloud = night_effective_cloud.mean()
+        average_effective_cloud = night["유효구름량"].mean()
 
         # 평균보다 나쁜 시간대의 영향을 더 크게 반영
         score = average_score * 0.55 + lower_score * 0.35 + best_score * 0.10
@@ -2402,26 +2417,7 @@ def build_weekly_forecast(weather, engine):
         score = round(max(0, min(100, score)))
 
         grade = weather_score_grade(score)
-        # --------------------------
-        # 그날 밤 가장 좋은 시간
-        # --------------------------
 
-        night["시간점수"] = night.apply(
-            hourly_weather_score,
-            axis=1,
-        )
-
-        best_index = night["시간점수"].idxmax()
-
-        best_time = night.loc[
-            best_index,
-            "시간",
-        ]
-
-        best_hour_score = night.loc[
-            best_index,
-            "시간점수",
-        ]
 
         # ==================================
         # 밤 전체의 달 영향 계산
@@ -2495,25 +2491,6 @@ def build_weekly_forecast(weather, engine):
                     "usable": usable,
                 }
             )
-
-            # ==================================
-        # 희미한 천체 관측 기준
-        #
-        # 달 밝기와 관계없이
-        # 달이 지평선 위에 있으면
-        # 최적 관측시간에서 제외
-        # ==================================
-
-        moon_is_up = hour_moon_altitude > 0
-
-        usable = weather_hour_score >= 65 and not moon_is_up
-        observation_hours.append(
-            {
-                "time": observation_time,
-                "score": weather_hour_score,
-                "usable": usable,
-            }
-        )
 
         # ==================================
         # 30분 단위 연속 관측 가능 구간 찾기
@@ -2618,19 +2595,7 @@ def build_weekly_forecast(weather, engine):
         else:
 
             best_time_range = "추천 구간 없음"
-        # ==================================
-        # 실제 최적 관측 시간의 달 상태
-        # ==================================
-        best_moon_info = engine.get_moon_at_time(best_time)
-
-        best_moon_brightness = best_moon_info["밝기"]
-        best_moon_altitude = best_moon_info["고도"]
-
-        if best_moon_altitude < 0:
-            best_moon_status = "🌑 지평선 아래"
-
-        else:
-            best_moon_status = "🌙 떠 있음"
+        
         # ==================================
         # 밤 시간 평균값 계산
         # ==================================
@@ -2662,7 +2627,7 @@ def build_weekly_forecast(weather, engine):
                 "달 감점": moon_penalty,
                 "달 떠있는 시간 %": moon_up_ratio,
                 "최적 시간": best_time_range,
-                "최고 예상점수": round(best_hour_score),
+                "최고 예상점수": round(best_score),
                 "평균 구름 %": round(avg_effective_cloud),
                 "전체 구름 %": round(avg_total_cloud),
                 "하층 구름 %": round(avg_low_cloud),
@@ -2978,86 +2943,6 @@ def timeline_observation_status(score):
         return "🔴 관측 비추천"
 
 
-def apply_timeline_moon_cap(
-    score,
-    brightness,
-    altitude,
-):
-
-    score = float(score)
-    brightness = float(brightness)
-    altitude = float(altitude)
-
-    # 달이 지평선 아래면 점수 제한 없음
-    if altitude <= 0:
-
-        return round(
-            max(
-                0,
-                min(
-                    100,
-                    score,
-                ),
-            )
-        )
-
-    # 매우 밝은 달
-    if brightness >= 70:
-
-        if altitude >= 30:
-            cap = 44
-
-        elif altitude >= 15:
-            cap = 54
-
-        else:
-            cap = 64
-
-    # 중간 밝기의 달
-    elif brightness >= 40:
-
-        if altitude >= 30:
-            cap = 54
-
-        elif altitude >= 15:
-            cap = 64
-
-        else:
-            cap = 74
-
-    # 비교적 어두운 달
-    elif brightness >= 20:
-
-        if altitude >= 30:
-            cap = 64
-
-        elif altitude >= 15:
-            cap = 74
-
-        else:
-            cap = 79
-
-    # 매우 얇은 달
-    else:
-
-        if altitude >= 30:
-            cap = 74
-
-        else:
-            cap = 84
-
-    return round(
-        max(
-            0,
-            min(
-                100,
-                score,
-                cap,
-            ),
-        )
-    )
-
-
 def get_main_timeline_rows(
     timeline_rows,
 ):
@@ -3076,6 +2961,88 @@ def get_main_timeline_rows(
     )
 
     return rows[:6]
+
+
+def get_current_weather_visual(current):
+
+    weather_code = int(current.get("weather_code", 0))
+
+    cloud_cover = float(current.get("cloud_cover", 0))
+
+    temperature = float(current.get("temperature_2m", 0))
+
+    precipitation = float(current.get("precipitation", 0))
+
+    # ======================================
+    # 눈
+    # ======================================
+
+    if weather_code in [71, 73, 75, 77, 85, 86] or (
+        precipitation > 0 and temperature <= 1
+    ):
+        return {
+            "icon": "❄️",
+            "label": "눈",
+        }
+
+    # ======================================
+    # 비
+    # ======================================
+
+    if (
+        weather_code
+        in [
+            51,
+            53,
+            55,
+            61,
+            63,
+            65,
+            80,
+            81,
+            82,
+            95,
+            96,
+            99,
+        ]
+        or precipitation > 0
+    ):
+        return {
+            "icon": "🌧️",
+            "label": "비",
+        }
+
+    # ======================================
+    # 안개
+    # ======================================
+
+    if weather_code in [45, 48]:
+        return {
+            "icon": "🌫️",
+            "label": "안개",
+        }
+
+    # ======================================
+    # 맑음 / 구름
+    # ======================================
+
+    if weather_code == 0 or cloud_cover <= 15:
+        return {
+            "icon": "☀️",
+            "label": "맑음",
+        }
+
+    elif weather_code in [1, 2] or cloud_cover <= 45:
+        return {
+            "icon": "⛅",
+            "label": "구름 약간",
+        }
+
+    else:
+        return {
+            "icon": "☁️",
+            "label": "흐림",
+        }
 
 
 # ==========================================
@@ -3118,12 +3085,16 @@ try:
     st.write("AAA를 위한 관측 지원 도구입니다.")
 
     st.subheader(f"📍 현재 관측지: {location_name}")
-    st.subheader("🌦️ 현재 날씨")
+    current_weather_visual = get_current_weather_visual(current)
+
+    st.subheader(f'{current_weather_visual["icon"]} 현재 날씨')
 
     dew_risk = calculate_dew_risk(
         current["temperature_2m"],
         current["relative_humidity_2m"],
     )
+
+    current_weather_visual = get_current_weather_visual(current)
 
     st.markdown(
         """
@@ -3134,7 +3105,6 @@ try:
 a.anchor-link {
     display: none !important;
 }
-
         .current-weather-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3163,6 +3133,24 @@ a.anchor-link {
         }
 
         @media (max-width: 768px) {
+             
+                        .current-weather-hero {
+                padding: 16px 12px;
+                margin-bottom: 10px;
+            }
+
+            .current-weather-hero-icon {
+                font-size: 44px;
+            }
+
+            .current-weather-hero-label {
+                font-size: 20px;
+            }
+
+            .current-weather-hero-sub {
+                font-size: 13px;
+            } 
+
 
             .current-weather-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4650,27 +4638,44 @@ a.anchor-link {
 
                     return ["" for _ in row]
 
-                styled_table_df = table_df.style.map(
-                    cloud_cell_style,
-                    subset=[
-                        "전체 구름 %",
-                        "하층 %",
-                        "중층 %",
-                        "상층 %",
-                    ],
-                ).apply(
-                    highlight_night_row,
-                    axis=1,
-                    subset=[
-                        "시간",
-                        "관측 점수",
-                        "강수확률 %",
-                        "습도 %",
-                        "이슬점 °C",
-                        "이슬 위험",
-                        "풍속 km/h",
-                        "시정 km",
-                    ],
+                styled_table_df = (
+                    table_df.style.map(
+                        cloud_cell_style,
+                        subset=[
+                            "전체 구름 %",
+                            "하층 %",
+                            "중층 %",
+                            "상층 %",
+                        ],
+                    )
+                    .apply(
+                        highlight_night_row,
+                        axis=1,
+                        subset=[
+                            "시간",
+                            "관측 점수",
+                            "강수확률 %",
+                            "습도 %",
+                            "이슬점 °C",
+                            "이슬 위험",
+                            "풍속 km/h",
+                            "시정 km",
+                        ],
+                    )
+                    .format(
+                        {
+                            "관측 점수": "{:.0f}",
+                            "전체 구름 %": "{:.0f}",
+                            "하층 %": "{:.0f}",
+                            "중층 %": "{:.0f}",
+                            "상층 %": "{:.0f}",
+                            "강수확률 %": "{:.0f}",
+                            "습도 %": "{:.0f}",
+                            "이슬점 °C": "{:.1f}",
+                            "풍속 km/h": "{:.1f}",
+                            "시정 km": "{:.1f}",
+                        }
+                    )
                 )
 
                 st.dataframe(
@@ -4683,10 +4688,6 @@ a.anchor-link {
     else:
 
         st.warning("오늘 밤 시간대의 날씨 데이터를 찾을 수 없습니다.")
-    # --------------------------------------
-    # 천문 계산 엔진
-    # --------------------------------------
-    engine = AstronomyEngine(latitude, longitude)
 
     # --------------------------------------
     # 행성
