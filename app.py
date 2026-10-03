@@ -1752,6 +1752,7 @@ def get_weather(latitude, longitude):
         "longitude": longitude,
         "timezone": "Asia/Seoul",
         "forecast_days": 8,
+        "past_hours": 24,
         "current": (
             "temperature_2m,"
             "relative_humidity_2m,"
@@ -2684,7 +2685,11 @@ def build_weekly_forecast(weather, engine):
 # ==========================================
 
 
-def build_night_dataframe(weather):
+def build_night_dataframe(
+    weather,
+    engine,
+):
+
     hourly = weather["hourly"]
 
     df = pd.DataFrame(
@@ -2692,9 +2697,7 @@ def build_night_dataframe(weather):
             "시간": pd.to_datetime(hourly["time"]),
             "기온": hourly["temperature_2m"],
             "습도": hourly["relative_humidity_2m"],
-            # 화면 표시용
             "구름량": hourly["cloud_cover"],
-            # 7일 예보와 동일한 점수 계산용
             "전체구름": hourly["cloud_cover"],
             "하층구름": hourly["cloud_cover_low"],
             "중층구름": hourly["cloud_cover_mid"],
@@ -2706,43 +2709,68 @@ def build_night_dataframe(weather):
         }
     )
 
-    now = datetime.now(KST).replace(tzinfo=None)
+    # ======================================
+    # 현재 관측 밤의 날짜 결정
+    #
+    # 자정 ~ 일출 전:
+    # 전날 저녁부터 시작된 밤을 계속 사용
+    #
+    # 일출 이후:
+    # 오늘 저녁부터 시작할 밤 사용
+    # ======================================
+
+    now = datetime.now(KST)
+
+    now_naive = now.replace(tzinfo=None)
 
     sunrise_today = datetime.fromisoformat(weather["daily"]["sunrise"][0])
 
-    sunset_today = datetime.fromisoformat(weather["daily"]["sunset"][0])
+    if now_naive < sunrise_today:
 
-    sunrise_tomorrow = datetime.fromisoformat(weather["daily"]["sunrise"][1])
+        observation_date = now.date() - timedelta(days=1)
 
-    # 새벽에는 오늘 저녁부터 시작하는
-    # 다가오는 밤을 기준으로 계산
-    if now < sunrise_today:
-
-        start_time = sunset_today
-        end_time = sunrise_tomorrow
-
-    # 낮에도 오늘 저녁부터 다음날 아침까지
-    elif now < sunset_today:
-
-        start_time = sunset_today
-        end_time = sunrise_tomorrow
-
-    # 이미 밤이 시작됐으면 현재 시각부터 계산
     else:
 
-        start_time = now.replace(minute=0, second=0, microsecond=0)
+        observation_date = now.date()
 
-        end_time = sunrise_tomorrow
+    # ======================================
+    # 해당 관측 밤의 천문박명 구간
+    # ======================================
+
+    astro_start, astro_end = engine.get_astronomical_night(observation_date.isoformat())
+
+    if astro_start is None or astro_end is None:
+
+        return (
+            pd.DataFrame(),
+            now_naive,
+            now_naive,
+        )
+
+    start_time = astro_start.replace(tzinfo=None)
+
+    end_time = astro_end.replace(tzinfo=None)
+
+    # ======================================
+    # 해당 밤의 데이터만 사용
+    # ======================================
 
     night_df = df[(df["시간"] >= start_time) & (df["시간"] <= end_time)].copy()
 
     # ======================================
-    # 7일 예보와 같은 시간별 관측점수 계산
+    # 시간별 관측 점수
     # ======================================
 
-    night_df["관측점수"] = night_df.apply(hourly_weather_score, axis=1)
+    night_df["관측점수"] = night_df.apply(
+        hourly_weather_score,
+        axis=1,
+    )
 
-    return (night_df.reset_index(drop=True), start_time, end_time)
+    return (
+        night_df.reset_index(drop=True),
+        start_time,
+        end_time,
+    )
 
 
 def build_day_weather_dataframe(weather):
@@ -3601,7 +3629,7 @@ a.anchor-link {
     # 오늘 밤 관측 조건
     # --------------------------------------
 
-    night_df, night_start, night_end = build_night_dataframe(weather)
+    night_df, night_start, night_end = build_night_dataframe(weather, engine)
 
     st.divider()
     st.header("🔭 오늘 밤 관측 조건")
@@ -3612,7 +3640,7 @@ a.anchor-link {
         # 7일 예보의 오늘 점수를 그대로 사용
         # ======================================
 
-        today_string = datetime.now(KST).strftime("%Y-%m-%d")
+        today_string = night_start.strftime("%Y-%m-%d")
 
         today_forecast = weekly_df[weekly_df["날짜"].astype(str) == today_string]
 
