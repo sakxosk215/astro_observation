@@ -484,8 +484,7 @@ class AstronomyEngine:
 
     def get_moon_at_time(self, target_datetime):
 
-        if target_datetime.tzinfo is None:
-            target_datetime = target_datetime.replace(tzinfo=KST)
+        target_datetime = target_datetime.replace(tzinfo=KST)
 
         t = self.ts.from_datetime(target_datetime)
 

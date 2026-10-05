@@ -2416,9 +2416,6 @@ def build_weekly_forecast(weather, engine):
 
         score = round(max(0, min(100, score)))
 
-        grade = weather_score_grade(score)
-
-
         # ==================================
         # 밤 전체의 달 영향 계산
         # ==================================
@@ -2443,12 +2440,11 @@ def build_weekly_forecast(weather, engine):
         # 30분 단위 계산
         # ==================================
 
-        night_for_timeline = night.copy()
+        half_hour_timeline = build_half_hour_weather_timeline(
+            night.assign(관측점수=night["시간점수"])
+        )
 
-        night_for_timeline["관측점수"] = night_for_timeline["시간점수"]
-
-        half_hour_timeline = build_half_hour_weather_timeline(night_for_timeline)
-
+        observation_hours = []
         observation_hours = []
 
         for hour_info in half_hour_timeline:
@@ -2462,8 +2458,6 @@ def build_weekly_forecast(weather, engine):
             # ==================================
 
             hour_moon_info = engine.get_moon_at_time(observation_time)
-
-            hour_moon_brightness = float(hour_moon_info["밝기"])
 
             hour_moon_altitude = float(hour_moon_info["고도"])
 
@@ -2484,10 +2478,6 @@ def build_weekly_forecast(weather, engine):
                 {
                     "time": observation_time,
                     "score": weather_hour_score,
-                    "moon_brightness": (hour_moon_brightness),
-                    "moon_altitude": (hour_moon_altitude),
-                    "weather_ok": weather_ok,
-                    "moonless": moonless,
                     "usable": usable,
                 }
             )
@@ -2595,7 +2585,7 @@ def build_weekly_forecast(weather, engine):
         else:
 
             best_time_range = "추천 구간 없음"
-        
+
         # ==================================
         # 밤 시간 평균값 계산
         # ==================================
@@ -2620,7 +2610,6 @@ def build_weekly_forecast(weather, engine):
                 "천문박명 종료": astro_start.strftime("%H:%M"),
                 "천문박명 시작": astro_end.strftime("%H:%M"),
                 "관측 점수": score,
-                "등급": grade,
                 "달 밝기 %": night_moon_brightness,
                 "달 고도 °": night_moon_altitude,
                 "달 상태": night_moon_status,
