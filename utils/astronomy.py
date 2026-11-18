@@ -484,7 +484,7 @@ class AstronomyEngine:
 
     def get_moon_at_time(self, target_datetime):
 
-        target_datetime = target_datetime.replace(tzinfo=KST)
+        target_datetime = self._ensure_kst(target_datetime)
 
         t = self.ts.from_datetime(target_datetime)
 
@@ -492,7 +492,14 @@ class AstronomyEngine:
 
         altitude, azimuth, _ = apparent.altaz()
 
-        illumination = almanac.fraction_illuminated(self.eph, "moon", t) * 100
+        illumination = (
+            almanac.fraction_illuminated(
+                self.eph,
+                "moon",
+                t,
+            )
+            * 100
+        )
 
         return {
             "밝기": round(illumination, 1),
@@ -500,6 +507,40 @@ class AstronomyEngine:
             "방위각": round(azimuth.degrees, 1),
         }
 
+    def get_moon_phase_at_time(
+        self,
+        target_datetime,
+    ):
+
+        target_datetime = self._ensure_kst(target_datetime)
+
+        t = self.ts.from_datetime(target_datetime)
+
+        phase_angle = almanac.moon_phase(
+            self.eph,
+            t,
+        ).degrees
+
+        illumination = (
+            almanac.fraction_illuminated(
+                self.eph,
+                "moon",
+                t,
+            )
+            * 100
+        )
+
+        return {
+            "위상각": round(
+                phase_angle,
+                1,
+            ),
+            "위상": moon_phase_name(phase_angle),
+            "밝기": round(
+                illumination,
+                1,
+            ),
+        }
 
     def get_moon(self):
         now = datetime.now(KST)
@@ -534,7 +575,6 @@ class AstronomyEngine:
             "상태": status,
             "달빛영향": moonlight_effect(illumination, alt),
         }
-
 
     def get_moon_rise_set(self):
 
@@ -589,7 +629,6 @@ class AstronomyEngine:
             "월출": moonrise,
             "월몰": moonset,
         }
-
 
     @staticmethod
     def _ensure_kst(dt):

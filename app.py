@@ -1515,7 +1515,12 @@ def search_location(search_text):
             "accept-language": "ko",
         }
 
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response = requests.get(
+            url,
+            params=params,
+            headers=headers,
+            timeout=(5, 30),
+        )
 
         response.raise_for_status()
 
@@ -2319,6 +2324,18 @@ def build_weekly_forecast(weather, engine):
             & (hourly_df["시간"] <= astro_end_naive)
         ].copy()
 
+        # ==================================
+        # 그날 관측 밤의 대표 달 위상
+        #
+        # 천문박명 구간의 중간 시각 기준
+        # ==================================
+
+        moon_phase_time = astro_start + (astro_end - astro_start) / 2
+
+        moon_phase_info = engine.get_moon_phase_at_time(moon_phase_time)
+
+        moon_phase_text = moon_phase_info["위상"]
+
         if len(night) == 0:
             continue
         # ==================================
@@ -2610,6 +2627,7 @@ def build_weekly_forecast(weather, engine):
                 "천문박명 종료": astro_start.strftime("%H:%M"),
                 "천문박명 시작": astro_end.strftime("%H:%M"),
                 "관측 점수": score,
+                "달 위상": moon_phase_text,
                 "달 밝기 %": night_moon_brightness,
                 "달 고도 °": night_moon_altitude,
                 "달 상태": night_moon_status,
@@ -3458,6 +3476,7 @@ a.anchor-link {
             f"</div>"
             '<div class="weekly-card-info">'
             f'<b>달 영향</b> : {row["달 영향"]}<br>'
+            f'**달 모양** : {row["달 위상"]}<br>'
             f"<b>어두운 시간</b> : "
             f'{row["천문박명 종료"]} ~ '
             f'{row["천문박명 시작"]}<br>'
