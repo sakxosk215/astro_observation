@@ -1789,7 +1789,7 @@ def get_weather(latitude, longitude):
         ),
     }
 
-    response = requests.get(url, params=params, timeout=10)
+    response = requests.get(url, params=params, timeout=(5,30), )
 
     response.raise_for_status()
 
@@ -5082,6 +5082,41 @@ a.anchor-link {
     )
 
     st.markdown(moon_html, unsafe_allow_html=True)
+
+    # ======================================
+    # 7일 달 상세 정보
+    # ======================================
+
+    with st.expander(
+        "🌙 7일 달 상세 정보",
+        expanded=False,
+    ):
+
+        moon_weekly_df = weekly_df[
+            [
+                "날짜",
+                "달 위상",
+                "달 밝기 %",
+                "달 상태",
+                "달 떠있는 시간 %",
+            ]
+        ].copy()
+
+        moon_weekly_df = moon_weekly_df.rename(
+            columns={
+                "날짜": "날짜",
+                "달 위상": "달 모양",
+                "달 밝기 %": "밝기 %",
+                "달 상태": "밤 달 상태",
+                "달 떠있는 시간 %": "떠있는 시간 %",
+            }
+        )
+
+        st.dataframe(
+            moon_weekly_df,
+            use_container_width=True,
+            hide_index=True,
+        )
 
     # --------------------------------------
     # 메시에 M1 ~ M110
